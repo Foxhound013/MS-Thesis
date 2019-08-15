@@ -1,0 +1,8 @@
+# Files to ignore
+secrets.py
+*.pyo
+*.pyc
+
+# Directories to ignore
+.ipynb_checkpoints/
+__pycache__/

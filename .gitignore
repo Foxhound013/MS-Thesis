@@ -6,3 +6,4 @@ secrets.py
 # Directories to ignore
 .ipynb_checkpoints/
 __pycache__/
+scratch/

@@ -59,9 +59,9 @@ def get_sql(versionDate):
             ON xdSpeed.xdid = arterials.xdid
 
         WHERE xdInfo.version = @versionDate and
-            xdSpeed.tstamp > '2019-01-01T00:00:00' and xdSpeed.tstamp <= '2019-04-16T00:00:00'
+            xdSpeed.tstamp > '%s' and xdSpeed.tstamp <= '2019-04-16T00:00:00'
             and xdSpeed.score = 30
-    """ % versionDate
+    """ % (versionDate, versionDate)
     cursor.execute(query)
     
     # Get the data in batches

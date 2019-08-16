@@ -1,24 +1,41 @@
 import pandas as pd
 import pymssql
+import sys
 from secrets import *
+
 
 def getDB(server, database, user, password):
     conn = pymssql.connect(server=server,
-                          database=database,
-                          user=user,
-                          password=password,
-                          login_timeout=300,
-                          port=1433)
+                        database=database,
+                        user=user,
+                        password=password,
+                        login_timeout=300,
+                        port=1433)
     cursor = conn.cursor()
     return cursor
 
-def get_sql():
+def getOutDirectory(versionDate):
+    if versionDate == '2017-04-02':
+        return('m1_2017-04-02')
+    elif versionDate == '2017-10-24':
+        return('m2_2017-10-24')
+    elif versionDate == '2018-04-25':
+        return('m3_2018-04-25')
+    elif versionDate == '2018-12-03':
+        return('m4_2018-12-03')
+
+def get_sql(versionDate):
+    # Sort out the location to place the resulting file
+    fpath = '/depot/wwtung/data/LoganD/trafficData/'
+    mapVersion = getOutDirectory(versionDate)
+    fname = '/trafficSpeeds.csv'
+    
     cursor = getDB(server, db, uid, pwd)
     query = """
         DECLARE @versionDate date
-        SET @versionDate = '2018-12-03'
+        SET @versionDate = '%s'
 
-        SELECT TOP (10)
+        SELECT
             xdInfo.version,
             arterials.xdid,
             xdSpeed.tstamp,
@@ -44,7 +61,7 @@ def get_sql():
         WHERE xdInfo.version = @versionDate and
             xdSpeed.tstamp > '2019-01-01T00:00:00' and xdSpeed.tstamp <= '2019-04-16T00:00:00'
             and xdSpeed.score = 30
-    """
+    """ % versionDate
     cursor.execute(query)
     
     # Get the data in batches
@@ -59,9 +76,16 @@ def get_sql():
             break
         else:
             if count == 0:                
-                df.to_csv('/depot/wwtung/data/LoganD/trafficData/m1_2017-04-02/trafficSpeeds.csv', header=True, index=False, mode='w')
+                df.to_csv(fpath+mapVersion+fname, header=True, index=False, mode='w')
                 count += 1
             else:
-                df.to_csv('/depot/wwtung/data/LoganD/trafficData/m1_2017-04-02/trafficSpeeds.csv', header=False, index=False, mode='a')
+                df.to_csv(fpath+mapVersion+fname, header=False, index=False, mode='a')
 
-get_sql() # Begin data download
+
+try:
+    versionDate = sys.argv[1]
+    get_sql(versionDate) # Begin data download
+except:
+    print("No date argument provided...")
+    print("The script should be executed as follows 'python fetchTraffic.py YYYY-MM-DD")
+    exit()

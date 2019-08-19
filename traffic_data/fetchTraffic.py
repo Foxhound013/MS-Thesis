@@ -16,18 +16,18 @@ def getDB(server, database, user, password):
 
 def getOutDirectory(versionDate):
     if versionDate == '2017-04-02':
-        return('m1_2017-04-02')
+        return('m1_2017-04-02', '2017-10-24T00:00:00')
     elif versionDate == '2017-10-24':
-        return('m2_2017-10-24')
+        return('m2_2017-10-24', '2018-04-25T00:00:00')
     elif versionDate == '2018-04-25':
-        return('m3_2018-04-25')
+        return('m3_2018-04-25', '2018-12-03T00:00:00')
     elif versionDate == '2018-12-03':
-        return('m4_2018-12-03')
+        return('m4_2018-12-03', '2019-04-16T00:00:00')
 
 def get_sql(versionDate):
     # Sort out the location to place the resulting file
     fpath = '/depot/wwtung/data/LoganD/trafficData/'
-    mapVersion = getOutDirectory(versionDate)
+    mapVersion, endTime = getOutDirectory(versionDate)
     fname = '/trafficSpeeds.csv'
     
     cursor = getDB(server, db, uid, pwd)
@@ -59,9 +59,9 @@ def get_sql(versionDate):
             ON xdSpeed.xdid = arterials.xdid
 
         WHERE xdInfo.version = @versionDate and
-            xdSpeed.tstamp > '%s' and xdSpeed.tstamp <= '2019-04-16T00:00:00'
+            xdSpeed.tstamp >= @versionDate and xdSpeed.tstamp < '%s'
             and xdSpeed.score = 30
-    """ % (versionDate, versionDate)
+    """ % (versionDate, endTime)
     cursor.execute(query)
     
     # Get the data in batches

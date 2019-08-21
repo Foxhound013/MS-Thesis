@@ -13,6 +13,7 @@ Work related to my masters thesis at Purdue University. Research is centered on 
 Using wgrib2 on a grib2 file from the HRRR archive reveals the following.
 - Grid Template: 30
 - Mode: 8 
+- Resolution: 8
 - Projection: Lambert Conformal
 - Lat1 (Latitude of 1st Grid Point): 37.376803
 - Lon1 (Longitude of 1st Grid Point): 270.992022

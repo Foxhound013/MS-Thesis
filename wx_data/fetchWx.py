@@ -4,26 +4,27 @@ import pandas as pd
 import xarray as xr
 
 import sys
-sys.path.append('/home/wdownin/pyBKB_v3')
-from BB_HRRR.HRRR_Pando import *
-
-
-import sys
+# Note: To use this script, you'll need to set up the conda environment and download the code
+# developed by Brian Blaylock. See https://github.com/blaylockbk/pyBKB_v3.
 sys.path.append('/home/wdownin/pyBKB_v3')
 from BB_HRRR.HRRR_Pando import *
 
 # Note: You're getting grid relative u and v wind components, this will need to be converted later more than likely.
-variables = ['VIS:surface', 'GUST:surface']
-#variables = ['VIS:surface', 'GUST:surface', 'TMP:surface', 'CNWAT:surface', 'WEASD:surface', 'SNOWC:surface',
-#       'SNOD:surface', 'TMP:2 m', 'POT:2 m', 'SPFH:2 m', 'DPT:2 m', 'RH:2 m', 'UGRD:10 m', 'VGRD:10 m',
-#       'WIND:10 m', 'MAXUW:10 m', 'MAXVW:10 m', 'CPOFP:surface', 'PRATE:surface', 'APCP:surface',
-#       'WEASD:surface', 'FROZR:surface', 'FRZR:surface', 'SSRUN:surface', 'CSNOW:surface', 'CICEP:surface'
-#       'CRAIN:surface', 'SFCR:surface', 'FRICV:surface', 'GFLUX:surface', 'CAPE:surface', 'CIN:surface',
-#       'DSWRF:surface']
+#variables = ['VIS:surface', 'GUST:surface'] # for debugging
+variables = ['VIS:surface', 'GUST:surface', 'TMP:surface', 'CNWAT:surface', 'WEASD:surface', 'SNOWC:surface',
+       'SNOD:surface', 'TMP:2 m', 'POT:2 m', 'SPFH:2 m', 'DPT:2 m', 'RH:2 m', 'UGRD:10 m', 'VGRD:10 m',
+       'WIND:10 m', 'MAXUW:10 m', 'MAXVW:10 m', 'CPOFP:surface', 'PRATE:surface', 'APCP:surface',
+       'WEASD:surface', 'FROZR:surface', 'FRZR:surface', 'SSRUN:surface', 'CSNOW:surface', 'CICEP:surface'
+       'CRAIN:surface', 'SFCR:surface', 'FRICV:surface', 'GFLUX:surface', 'CAPE:surface', 'CIN:surface',
+       'DSWRF:surface']
 
-dates = pd.date_range(start=datetime(2019,6,1,0,0), end=datetime(2019,6,1,23,0), freq='H')
+sdate = datetime(2017,4,2,0,0)
+edate = datetime(2019,4,16,0,0)
 
-# !!!!! Feature to add - It may be worthwile to pull some of the attributes during get_variable step and insert them into the data arrays. 
+dates = pd.date_range(start=sdate, end=edate, freq='H')
+
+# !!!!! Feature to add - It may be worthwile to pull some of the attributes during get_variable 
+# step and insert them into the data arrays. 
 
 datasets = []
 timeSliceArrays = []
@@ -36,7 +37,7 @@ for date in dates:
               data = get_hrrr_variable(date, var, fxx=0, model='hrrr',
                                    field='sfc', removeFile=True,
                                    value_only=False, verbose=True,
-                                   outDIR='/tmp/'); #/tmp/ is a cluster directory
+                                   outDIR='/tmp/') #/tmp/ is a cluster directory
               
               # lat/lon values have been chosen to center on Indiana
               data = hrrr_subset(data, half_box=85, lat=39.7684, 

@@ -1,0 +1,13 @@
+library(lattice)
+library(tidyverse)
+library(rNOMADS)
+library(sp)
+
+fpath = '../asos_april-july_2018.csv'
+col_names = c('station', 'valid_utc', 'lon', 'lat', 'tmpc', 'dwptc', 'relh',
+              'drctn', 'spd', 'precip_1hr_mm', 'vis', 'gust_mph', 'wxcodes')
+asos <- read.csv(fpath, header=TRUE, stringsAsFactors = FALSE, col.names=col_names,
+                 na.strings=c('M', '#NAME?', 'T'))
+
+mrms <- ReadGrib('../MRMS_PrecipRate_00.00_20180501-000000.grib2', variables='PrecipRate',
+                 levels='0 m')

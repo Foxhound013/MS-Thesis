@@ -3,6 +3,7 @@ library(tidyverse)
 library(rNOMADS)
 library(sp)
 library(raster)
+library(fields)
 
 fpath <- 'C:/Users/Downi/Google Drive/Research/Thesis/wx_data/asos_april-july_2018.csv'
 col_names = c('station', 'valid_utc', 'lon', 'lat', 'tmpc', 'dwptc', 'relh',
@@ -23,7 +24,7 @@ plot(rasterize(asos, rast, asos$vis, fun=mean))
 
 ##### Characterizing the ASOS Data #####
 
-fpath <- 'C:/Users/Downi/Google Drive/Research/Thesis/wx_data/asos_april-july_2018.csv'
+fpath <- './asos_april-july_2018.csv'
 col_names = c('station', 'valid_utc', 'lon', 'lat', 'tmpc', 'dwptc', 'relh',
               'drctn', 'spd', 'precip_1hr_mm', 'vis', 'gust_mph', 'wxcodes')
 asos <- read.csv(fpath, header=TRUE, stringsAsFactors = FALSE, col.names=col_names,
@@ -90,3 +91,68 @@ lattice::xyplot(vis~valid_utc | factor(station), data=subset(asos_sub, format(va
 # QQ plot between lafayette and Indy show a quadratic relationship. This makes some sense.
 lattice::qq(station ~ vis, aspect = 1, data = asos_sub,
    subset = (asos_sub$station == "IND" | asos_sub$station == "LAF"))
+
+# Let's look at some histograms!
+lattice::histogram(~asos_sub$vis | factor(asos_sub$station), data=asos_sub)
+
+# a majority of the data falls into the ten mile category, let's exclude the 10 mile data.
+lattice::histogram(~asos_sub[which(asos_sub$vis < 10),'vis'] | factor(asos_sub$station), data=asos_sub)
+summary(asos_sub[which(asos_sub$vis < 10),'vis'])
+
+# most of the histograms look quite similar with the exception of PLD, HLB, and AID.
+# Let's take a closer look at IND only.
+ind <- asos_sub[which(asos_sub$station == 'IND'),]
+
+lattice::histogram(~ind$vis)
+lattice::xyplot(vis~valid_utc, data=ind)
+
+# what if I condition this on hour of day? Maybe split out the datetime column into hour and day?
+ind$hour <- sapply(ind$valid_utc, strftime, format='%H', tz='UTC')
+asos_sub$hour <- sapply(asos_sub$valid_utc, strftime, format='%H', tz='UTC')
+
+
+lattice::xyplot(vis~hour, data=ind)
+plot(ind$hour, ind$vis)
+lattice::histogram(~vis | factor(hour), data=ind)
+# the 10 mile visibility still dominates the dataset across all hours. Let's exclude it.
+lattice::histogram(~vis | factor(hour), data=ind[which(ind$vis < 10), ])
+
+
+lattice::histogram(hour~vis, data=ind[which(ind$vis < 10),])
+
+lattice::densityplot(~vis | factor(hour), data=ind[which(ind$vis < 10),])
+lattice::densityplot(~vis | factor(hour), data=ind)
+
+
+lattice::densityplot(~vis | factor(hour), data=asos_sub[which(asos_sub$vis < 10),])
+
+
+
+# Seem to have exhausted possibilities for characterizing the data.
+# Summary
+# Visibility has good coverage at most sites. There is some weirdness at a few of the sites
+# that may warrant discounting those locations. It seems if it's not an instrument error then
+# it is a location error perhaps?
+# If you can get the HRRR vis data with Brian Blaylock's Python code, for these sites, it would
+# be possible to compare these visibilities with a qqplot to ensure they follow a similar distribution.
+
+# The next big step in this exploration is attempting to regrid the asos data onto a regularized
+# grid like what is available in MRMS in order to fuse the datasets.
+
+##### Regrid #####
+# fields::Krig() seems to be the function I'll want.
+# interp.surface takes gridded data and interpolates to another grid. Maybe this can be done to get
+# the MRMS and asos grids to match?
+
+# find the unique lat and lon
+asos_sub[which(asos_sub$station == unique(asos_sub$station)), c('lon','lat')]
+locations <- data.frame(cbind(asos_sub$station, asos_sub$lat, asos_sub$lon))
+names(locations) <- c('station','lat','lon')
+
+locations <- unique(locations)
+rownames(locations) <- seq(1,length(locations$station))
+
+
+Krig(asos_sub$lon, asos_sub$lat, theta=20)
+
+fields::as.image(asos_sub$vis, x = c(asos_sub$lon, asos_sub$lat))

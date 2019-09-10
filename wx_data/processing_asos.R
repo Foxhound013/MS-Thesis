@@ -68,13 +68,25 @@ missing_df = data.frame(vis.missing, tmpc.missing, dwptc.missing, dwptc.missing,
 ##
 
 asos_sub = asos[,c('station', 'valid_utc', 'lat', 'lon', 'vis', 'spd', 'drctn')]
-
+# There is some strange values in the spd and and vis vars
+asos_sub = asos_sub[which(asos_sub$vis <= 20),]
+asos_sub = asos_sub[which(asos_sub$spd <= 75),]
 summary(asos_sub)
 
-# There is some strange values in the spd and and vis vars
-plot(asos_sub$vis[which(asos_sub$vis <= 20)])
-hist(asos_sub$vis[which(asos_sub$vis <= 20)])
+# Let's try a lattice plot of histograms for the visibility data by station
+# 
+lattice::xyplot(vis~valid_utc | factor(station), data=asos_sub)
 
-# The result really shouldn't be surprising, most days are going to have
-# high visibility
-hist(asos_sub$spd[which(asos_sub$spd <= 75)])
+# what about if I restrict it down to April
+lattice::xyplot(vis~valid_utc | factor(station), data=subset(asos_sub, format(valid_utc,'%m')=='04'))
+# May?
+lattice::xyplot(vis~valid_utc | factor(station), data=subset(asos_sub, format(valid_utc,'%m')=='05'))
+# June?
+lattice::xyplot(vis~valid_utc | factor(station), data=subset(asos_sub, format(valid_utc,'%m')=='06'))
+# July?
+lattice::xyplot(vis~valid_utc | factor(station), data=subset(asos_sub, format(valid_utc,'%m')=='07'))
+
+
+# QQ plot between lafayette and Indy show a quadratic relationship. This makes some sense.
+lattice::qq(station ~ vis, aspect = 1, data = asos_sub,
+   subset = (asos_sub$station == "IND" | asos_sub$station == "LAF"))

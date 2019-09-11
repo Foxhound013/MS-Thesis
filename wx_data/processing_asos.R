@@ -145,7 +145,6 @@ lattice::densityplot(~vis | factor(hour), data=asos_sub[which(asos_sub$vis < 10)
 # the MRMS and asos grids to match?
 
 # find the unique lat and lon
-asos_sub[which(asos_sub$station == unique(asos_sub$station)), c('lon','lat')]
 locations <- data.frame(cbind(asos_sub$station, asos_sub$lat, asos_sub$lon))
 names(locations) <- c('station','lat','lon')
 
@@ -156,3 +155,38 @@ rownames(locations) <- seq(1,length(locations$station))
 Krig(asos_sub$lon, asos_sub$lat, theta=20)
 
 fields::as.image(asos_sub$vis, x = c(asos_sub$lon, asos_sub$lat))
+
+tslice <- asos_sub[asos_sub$valid_utc == '2018-04-01 00:00:00',]
+
+obj_a <- list(x= tslice$lon, y=tslice$lat, z=tslice$vis )
+a.mat_a <- seq(from=38, to=42, by=0.5)
+b.mat_a <- seq(from=-88,to=-86,by=0.5)
+loc_a <- make.surface.grid(list(x=a.mat_a, y=b.mat_a))
+xdata <- interp.surface(obj_a, loc_a)
+
+krigSurface <- Krig(x=as.matrix(cbind(tslice$lon, tslice$lat)), Y=tslice$vis)
+plot.Krig(krigSurface)
+surface.Krig(krigSurface) # Just plots the krig surface
+
+fields::as.surface(krigSurface)
+
+krig.grid <- surface.Krig(krigSurface)
+
+# This shows that I may very well need to pull from other asos sites in other states
+# in order to fit completely around Indiana. This isn't too much of a problem.
+
+# lets try going spatial immediately instead
+sp::coordinates(asos_sub) <- ~lon+lat
+sp::proj4string(asos_sub) <- CRS("+init=epsg:4326")
+
+bbox(asos_sub)
+
+tslice <- asos_sub[asos_sub$valid_utc == '2018-04-01 00:00:00',]
+
+plot(tslice)
+
+grid <- sp::makegrid(tslice, n=1000)
+plot(grid, pch='.')
+plot(tslice, add=T)
+
+ggplot(data = grid)+geom_point(aes(x=x1, y=x2))

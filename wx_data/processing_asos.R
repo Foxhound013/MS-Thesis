@@ -5,6 +5,8 @@ library(sp)
 library(raster)
 library(fields)
 
+# Asos specs can be found at https://www.weather.gov/media/asos/aum-toc.pdf
+
 fpath <- 'C:/Users/Downi/Google Drive/Research/Thesis/wx_data/asos_april-july_2018.csv'
 col_names = c('station', 'valid_utc', 'lon', 'lat', 'tmpc', 'dwptc', 'relh',
               'drctn', 'spd', 'precip_1hr_mm', 'vis', 'gust_mph', 'wxcodes')
@@ -24,7 +26,7 @@ plot(rasterize(asos, rast, asos$vis, fun=mean))
 
 ##### Characterizing the ASOS Data #####
 
-fpath <- './asos_april-july_2018.csv'
+fpath <- '/depot/wwtung/data/LoganD/wxData/asos/asos_april-july_2018_IN.csv'
 col_names = c('station', 'valid_utc', 'lon', 'lat', 'tmpc', 'dwptc', 'relh',
               'drctn', 'spd', 'precip_1hr_mm', 'vis', 'gust_mph', 'wxcodes')
 asos <- read.csv(fpath, header=TRUE, stringsAsFactors = FALSE, col.names=col_names,
@@ -63,68 +65,79 @@ wxcodes.missing = (sum(is.na(asos$wxcodes))/length(asos$wxcodes)) * 100
 missing_df = data.frame(vis.missing, tmpc.missing, dwptc.missing, dwptc.missing, 
            spd.missing, drctn.missing, gust.missing, precip.missing, wxcodes.missing)
 
+missing_df
+paste('Only the visibility, speed, and direction are any good.')
 ## The results are that the asos data is pretty bad. Most of it is missing
 # with the exception of visibility, wind speed, and direction.
 # These are the only variables worth sourcing from asos.
 ##
 
-asos_sub = asos[,c('station', 'valid_utc', 'lat', 'lon', 'vis', 'spd', 'drctn')]
-# There is some strange values in the spd and and vis vars
-asos_sub = asos_sub[which(asos_sub$vis <= 20),]
-asos_sub = asos_sub[which(asos_sub$spd <= 75),]
-summary(asos_sub)
+summary(asos$vis)
+# There is a problem, with the asos data, no vis should be above 10 miles
+asos <- asos[which(asos$vis <= 10 | is.na(asos$vis) ),]
+summary(asos)
 
-# Let's try a lattice plot of histograms for the visibility data by station
-# 
-lattice::xyplot(vis~valid_utc | factor(station), data=asos_sub)
+# Look at the quantiles for visibility across the whole dataset
+vis.q <- quantile(asos$vis, probs=seq(0,.99,0.01), na.rm=T)
+plot(vis.q)
 
-# what about if I restrict it down to April
-lattice::xyplot(vis~valid_utc | factor(station), data=subset(asos_sub, format(valid_utc,'%m')=='04'))
-# May?
-lattice::xyplot(vis~valid_utc | factor(station), data=subset(asos_sub, format(valid_utc,'%m')=='05'))
-# June?
-lattice::xyplot(vis~valid_utc | factor(station), data=subset(asos_sub, format(valid_utc,'%m')=='06'))
-# July?
-lattice::xyplot(vis~valid_utc | factor(station), data=subset(asos_sub, format(valid_utc,'%m')=='07'))
+#
+lattice::histogram(~asos$vis | factor(asos$station), xlab="Visibility (Miles)")
+# remove the 10 mile data to get a better view
+asos.sub10 <- asos[which(asos$vis < 10 | is.na(asos$vis)),]
+summary(asos.sub10)
+lattice::histogram(~vis | factor(station), data=asos.sub10, xlab="Visibility (Miles)")
 
+# Variation across site
+lattice::qqmath(~vis | factor(station), data=asos, ylab="Visibility (Miles)", pch=16, cex=.5)
 
-# QQ plot between lafayette and Indy show a quadratic relationship. This makes some sense.
-lattice::qq(station ~ vis, aspect = 1, data = asos_sub,
-   subset = (asos_sub$station == "IND" | asos_sub$station == "LAF"))
+# Variation across hours?
+asos$hour = strftime(asos$valid_utc, format='%H', tz='UTC')
+lattice::qqmath(~vis | factor(hour), data=asos, ylab="Visibility (Miles)", pch=16, cex=.5)
 
-# Let's look at some histograms!
-lattice::histogram(~asos_sub$vis | factor(asos_sub$station), data=asos_sub)
+# Look into stations for each time slice
+stations <- asos[,c('station', 'valid_utc', 'lon', 'lat')]
+station.freq <- as.data.frame(table(stations$station))
+names(station.freq) <- c('station', 'freq')
 
-# a majority of the data falls into the ten mile category, let's exclude the 10 mile data.
-lattice::histogram(~asos_sub[which(asos_sub$vis < 10),'vis'] | factor(asos_sub$station), data=asos_sub)
-summary(asos_sub[which(asos_sub$vis < 10),'vis'])
+unique_times <- length(unique(stations$valid_utc))
 
-# most of the histograms look quite similar with the exception of PLD, HLB, and AID.
-# Let's take a closer look at IND only.
-ind <- asos_sub[which(asos_sub$station == 'IND'),]
+station.freq$percent <- station.freq$freq/unique_times * 100
+plot(station.freq$station, station.freq$percent)
 
-lattice::histogram(~ind$vis)
-lattice::xyplot(vis~valid_utc, data=ind)
-
-# what if I condition this on hour of day? Maybe split out the datetime column into hour and day?
-ind$hour <- sapply(ind$valid_utc, strftime, format='%H', tz='UTC')
-asos_sub$hour <- sapply(asos_sub$valid_utc, strftime, format='%H', tz='UTC')
+p <- barplot(station.freq$percent, names.arg=station.freq$station,
+        cex.names=0.5, horiz=F)
 
 
-lattice::xyplot(vis~hour, data=ind)
-plot(ind$hour, ind$vis)
-lattice::histogram(~vis | factor(hour), data=ind)
-# the 10 mile visibility still dominates the dataset across all hours. Let's exclude it.
-lattice::histogram(~vis | factor(hour), data=ind[which(ind$vis < 10), ])
+# visibility has been thoroughly vetted now, but what about wind speed.
+summary(asos$spd)
+# The asos manual says speed doesn't report greater than 125 knots
+asos.wind <- asos[which(asos$spd <= 125 | is.na(asos$spd)),]
+summary(asos.wind$spd)
+
+lattice::histogram(~asos.wind$spd | factor(asos.wind$station), xlab="Wind Speed (Knots)")
+lattice::histogram(~asos.wind$spd | factor(asos.wind$hour), xlab="Wind Speed (Knots)")
+
+# What about when compared to a distribution?
+lattice::qqmath(~asos.wind$spd | factor(asos.wind$station), ylab="Wind Speed (Knots)", pch=16, cex=.5)
+lattice::qqmath(~asos.wind$spd | factor(asos.wind$hour), ylab="Wind Speed (Knots)", pch=16, cex=.5)
 
 
-lattice::histogram(hour~vis, data=ind[which(ind$vis < 10),])
+# Now for wind direction
+summary(asos.wind$drctn)
+lattice::qqmath(~asos.wind$drctn)
 
-lattice::densityplot(~vis | factor(hour), data=ind[which(ind$vis < 10),])
-lattice::densityplot(~vis | factor(hour), data=ind)
+lattice::histogram(~asos.wind$drctn | factor(asos.wind$station), xlab="Wind Direction (Degrees)")
+lattice::histogram(~asos.wind$drctn | factor(asos.wind$hour), xlab="Wind Direction (Degrees)")
 
 
-lattice::densityplot(~vis | factor(hour), data=asos_sub[which(asos_sub$vis < 10),])
+lattice::qqmath(~asos.wind$drctn | factor(asos.wind$station), ylab="Wind Speed (Knots)", pch=16, cex=.5)
+lattice::qqmath(~asos.wind$drctn | factor(asos.wind$hour), ylab="Wind Speed (Knots)", pch=16, cex=.5)
+
+
+# Let's get some general stats for presentation
+asos2 <- asos[,c('station', 'valid_utc', 'lon', 'lat', 'drctn', 'spd', 'vis', 'hour')]
+summary(asos)
 
 
 

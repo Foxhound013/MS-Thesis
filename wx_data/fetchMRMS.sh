@@ -6,7 +6,7 @@
 # The best fix to this would be migrating this script over to Python using Dask to long write to a netcdf file.
 # A feature that I unfortunately don't have the time to prototype and polish at the moment.
 #
-# USER NOTE: When you run this, make sure you change 
+# USER NOTE: When you run this, make sure you change the month parameter
 #
 # This bash script is designed to leverage the Iowa Environmental Mesonet Archive of the Multi Radar Multi Sensor (MRMS) system.
 # This script will function as follows . . . 
@@ -43,7 +43,7 @@ missingLog=missing_mrms.txt
 # Set start and end to be the same if you don't want to change year, month, day, etc.
 startYear=2018
 endYear=startYear
-startMonth=04
+startMonth=05
 endMonth=startMonth
 startDay=01
 endDay=31
@@ -82,7 +82,7 @@ do
                     fileDownload=${BASEURL}${year}/${monthf}/${dayf}${IEM_DIR}${file}.grib2.gz
 
                     # wget else if that fails echo this and save the datetime that is missing to missing.txt
-                    wget ${fileDownload} --directory-prefix /tmp/ || echo "${year}/${monthf}/${dayf} at ${timef}" >> ${missingLog}            
+                    wget ${fileDownload} --directory-prefix /tmp/ || echo "${year}/${monthf}/${dayf} at ${hour}:${minute}" >> ${missingLog}            
                     gunzip -f /tmp/${file}.grib2.gz
 
                     # Now work on it in wgrib2

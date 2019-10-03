@@ -1,13 +1,18 @@
-library(rNOMADS)
 library(ncdf4)
 library(lattice)
 library(sp)
+library(rgdal)
 library(RColorBrewer)
+library(data.table)
+library(fields)
+library(tidyverse)
+library(gstat)
+library(spacetime)
 
 # useful resource http://geog.uoregon.edu/bartlein/courses/geog490/week04-netCDF.html
 
 # Example data
-fpath <- '/depot/wwtung/data/LoganD/wxData/mrms/archive/sub.nc'
+fpath <- '/depot/wwtung/data/loganD/wxData/mrms/archive/smaller_sub.nc'
 mrms <- ncdf4::nc_open(fpath)
 
 lon <- ncdf4::ncvar_get(mrms, 'longitude')
@@ -32,9 +37,8 @@ image(precip_tslice)
 min(precip_tslice)
 max(precip_tslice)
 var(precip_tslice)
-# Coolio, now we're cookin' with bacon!
 
-time <- as.POSIXct(time, origin='1970-01-01 00:00:00', tx='UTC')
+time <- as.POSIXct(time, origin='1970-01-01 00:00:00', tz='UTC')
 # replace fill values with NAs
 precipRate[precipRate==fillvalue$value] <- NA
 
@@ -100,3 +104,38 @@ plot(tmp.fullq[80:100])
 # It looks like you've thrown off your dimensions.
 as.data.frame(precipRate)
 
+
+
+####################################
+# Fresh
+####################################
+precip_tslice <- precipRate[,,1]
+grid <- fields::make.surface.grid(list(lon,lat))
+vals <- fields::as.surface(grid, precip_tslice)
+image(vals)
+# above shows that you officially have a surface for a time slice!
+
+# If we wanted to go with bilinear interpolation, the following works great!
+lon_want <- -86.3
+lat_want <- 39
+location_i <- matrix(c(lon_want, lat_want), nrow=1, ncol=2)
+fields::interp.surface(vals, location_i)
+
+# Kriging requires a variogram
+# can't seem to get working
+
+gstat::variogram(precip_tslice~1, location=vals, data=vals)
+
+
+
+## Lets try getting a dataframe with all of the values like we had done with test
+#slice <- data.frame(cbind(grid, time, as.vector(precip_tslice)))
+test <- data.frame(expand.grid(lon,lat))
+test$precip <- as.vector(precip_tslice)
+colnames(test) <- c('lon','lat','precip')
+
+summary(test)
+precip_sp <- SpatialPoints(test,CRS("+init=epsg:4326"))
+
+var <- variogram(precip~1, data=precip_sp)
+plot(var)

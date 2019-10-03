@@ -26,7 +26,7 @@ plot(rasterize(asos, rast, asos$vis, fun=mean))
 
 ##### Characterizing the ASOS Data #####
 
-fpath <- '/depot/wwtung/data/LoganD/wxData/asos/asos_april-july_2018_IN.csv'
+fpath <- '/depot/wwtung/data/loganD/wxData/asos/asos_april-july_2018_IN.csv'
 col_names = c('station', 'valid_utc', 'lon', 'lat', 'tmpc', 'dwptc', 'relh',
               'drctn', 'spd', 'precip_1hr_mm', 'vis', 'gust_mph', 'wxcodes')
 asos <- read.csv(fpath, header=TRUE, stringsAsFactors = FALSE, col.names=col_names,
@@ -184,6 +184,14 @@ surface.Krig(krigSurface) # Just plots the krig surface
 fields::as.surface(krigSurface)
 
 krig.grid <- surface.Krig(krigSurface)
+
+
+# Need to get a grid object from the mrms dataset
+# then we can interpolate on to that grid.
+
+
+
+
 
 # This shows that I may very well need to pull from other asos sites in other states
 # in order to fit completely around Indiana. This isn't too much of a problem.

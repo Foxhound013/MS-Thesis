@@ -9,7 +9,7 @@ traffic <- read.csv(fpath, header=F, stringsAsFactors=F, col.names=c('version', 
                     'speed', 'roadNumber', 'roadName', 'county', 'miles', 'lat', 'lon',
                     'bearing', 'district', 'subdistrict', 'prevXdid', 'nextXdid'))
 
-traffic[1,1] <- sub(pattern='﻿',replacement='', x=traffic[1,1])
+traffic[1,1] <- sub(pattern='ï»¿',replacement='', x=traffic[1,1])
 
 traffic$tstamp <- lubridate::as_datetime(traffic$tstamp)
 traffic$hour <- lubridate::hour(traffic$tstamp)

@@ -124,67 +124,81 @@ barchart(count~hour, data=mConfHour.count,
          ylab='Frequency')
 dev.off()
 
+# what do the speeds look like
+# good idea, poor execution. Below will give you an average across the whole month (not great)
+mConf.avgSpd <- mConf[,mean(speed), by=c('xdid')]
+summary(mConf.avgSpd)
+
+# Does a random sample of the medium traffic speeds look comparable to that of the high?
+mConf.groups <- mConf[,speed, by=c('xdid', 'tstamp')]
+
+pdf('./figures/mConf_Tseries.pdf')
+xyplot(speed~tstamp | factor(xdid), data=mConf.groups, type='l', pch=16, col='deepskyblue3',
+       layout=c(1,6), ylim=seq(0,70,10))
+dev.off()
+
 # High confidence segments
 summary(hConf)
 length(unique(hConf$xdid))
 
-xyplot(speed~tstamp, data=traffic)
+# https://stats.stackexchange.com/questions/7348/statistical-methods-to-more-efficiently-plot-data-when-millions-of-points-are-pr
+# above link may provide some useful tools for plotting this data
 
+# there is too much data to straight out plot it, cut the t series down
+# this may simply be a case of needing to submit to a cluster and wait for the results
+xdid.hConf.unique <- unique(hConf[,'xdid'])
+xdid.rand <- hConf[sample(nrow(xdid.hConf.unique), size = 100, replace=F),'xdid']
 
-toy <- lConf[,c('xdid', 'lat', 'lon')]
-unique(toy)
-toy <- st_as_sf(toy, coords=c('lon','lat'))
-tmap_mode('view')
-tm_shape(toy) + tm_dots('xdid')
+hConf.sub <- merge(hConf, xdid.rand)
+hConf.sub <- complete(hConf.sub, xdid, tstamp) # fill in NA values
 
-xyplot(speed~tstamp | factor(xdid), data=hConf, layout=c(1,3,1))
-
-
-pdf('./figures/speedsByConfidence.pdf')
-xyplot(speed~tstamp | factor(xdid) + factor(score), data=toy, layout=c(1,2,1))
+pdf('./figures/hConf_100RandomSamples.pdf', width=16)
+xyplot(speed~tstamp | factor(xdid), data=hConf.sub, type='l', pch=16, col='deepskyblue3',
+       layout=c(1,6), ylim=seq(0,70,10))
 dev.off()
 
 
-# Need to update the analysis from this point on since there is 0 missigness in the data now.
 
-na_tseries <- traffic[,sum(is.na(speed)), by = c('xdid', 'tstamp')]
-colnames(na_tseries) <- c('xdid', 'tstamp', 'isNA')
-head(na_tseries, 10)
+##### Smoothing the data #####
+# start with a toy (small) example
+xdid.unique <- unique(traffic[,'xdid'])
+xdid.rand <- traffic[sample(nrow(xdid.unique), size = 1, replace=F),'xdid']
+toy <- merge(traffic, xdid.rand)
+toy.sub <- subset(toy, tstamp>=as.POSIXct('2018-05-01 00:00:00') & tstamp < '2018-05-02 00:00:00')
 
+plot(toy.sub$tstamp, toy.sub$speed, type='l')
 
-# # This figure takes too long to create. Aggregating the results first is necessary to plot
-# pdf('./figures/missingnessByTime_May.pdf')
-# xyplot(isNA~tstamp | factor(xdid), data=na_tseries, pch=16, col='deepskyblue3',
-#        layout=c(1,6,length(unique(na_tseries$xdid))/6))
-# dev.off()
+toy$tstamp <- as.integer(toy$tstamp)
 
-# aggregate by id and hour
-traffic$hour <- hour(traffic$tstamp)
+toy.loess <- loess(speed~tstamp, data=toy, span=0.02) # roughly 20 seconds
+newTimes <- seq(as.POSIXct('2018-05-01 00:00:00'),as.POSIXct('2018-05-01 23:59:00'), by = '15 mins') %>% as.integer
+tmp <- predict(toy.loess, data.frame(tstamp=newTimes), se=FALSE)
 
-missByID <- traffic[,sum(is.na(speed)), by=c('xdid', 'hour')]
-colnames(missByID) <- c('xdid', 'hour', 'isNA')
-glimpse(missByID)
-
-xyplot(isNA~hour | factor(xdid), data=missByID, layout=c(1,6,1))
-xyplot(isNA~hour, data=missByID)
-
-# missingness for each time slice
-missByT <- na_tseries[,sum(isNA),by=c('tstamp')]
-colnames(missByT) <- c('tstamp', 'isNA')
-
-xyplot(isNA~tstamp, data=missByT)
-
-missByT$hour <- hour(missByT$tstamp)
-xyplot(isNA~hour, data=missByT)
-
-# missingness ratio
-missByT$missingRatio <- (missByT$isNA/length(missByT$tstamp))*100
-xyplot(missingRatio~tstamp, data=missByT, ylim=c(0,20))
+plot(as.integer(toy$tstamp), toy$speed, type='l', cex=.5)
+lines(as.integer(toy$tstamp), toy.loess$fitted, col='red')
 
 
-# the systematic looking peaks are likely some rogue segments that were out for a large portion of the
-# time frame. How can we look at this both spatially and temporally.
+
+##### Subset to 15 min #####
+
+# Loess examples have been kept above for potential future use, but 15 min. bins will be explored
+tmp <- toy %>% group_by(xdid,tstamp=cut(tstamp,breaks='15 min')) %>% summarise(avgSpeed=mean(speed))
+plot(tmp$tstamp, tmp$avgSpeed, type='l')
+lines(tmp$tstamp, tmp$avgSpeed)
 
 
+# try this for the whole dataset, can it be done reasonably?
+traffic.sub <- traffic %>% group_by(xdid,tstamp=cut(tstamp,breaks='15 min'))  %>% summarise(avgSpeed=mean(speed))
+# surprisingly fast! Less than 1 minute
+# significantly reduces data size as well
+
+traffic.sub$tstamp <- as.POSIXct(traffic.sub$tstamp)
+xyplot(avgSpeed~tstamp | factor(xdid), data=traffic.sub, type='l', layout=c(1,6,1))
+
+bwplot(~avgSpeed | factor(xdid), data=traffic.sub, layout=c(1,1,1), horizontal=F)
+
+
+traffic.1 <- traffic.sub[which(traffic.sub$xdid=='138360227'),]
+xyplot(avgSpeed~tstamp, data=traffic.1, type='l')
 
 

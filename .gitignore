@@ -2,6 +2,7 @@
 secrets.py
 *.pyo
 *.pyc
+hConf_Tseries.pdf
 
 # Directories to ignore
 .ipynb_checkpoints/

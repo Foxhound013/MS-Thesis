@@ -140,14 +140,12 @@ xyplot(speed~tstamp, oneSeg.n, type='l')
 # correcting data to be stationary
 adf.test(oneSeg.n$speed, k=96)
 tmp <- diff(oneSeg.n$speed)
-adf.test(tmp, k=96) # applying a lagged difference to 
+adf.test(tmp, k=96)
 plot(tmp, type='l')
 
 adf.test(oneSeg.n$speed, k=672)
 tmp <- diff(oneSeg.n$speed)
-tmp <- diff(tmp) 
-tmp <- diff(tmp) # requires a second order differencing to reach stationarity
-adf.test(tmp, k=672) # applying a lagged difference to 
+adf.test(tmp, k=672)
 plot(tmp, type='l')
 
 

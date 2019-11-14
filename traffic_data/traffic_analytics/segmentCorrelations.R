@@ -6,7 +6,9 @@ library(dplyr)
 library(tidyr)
 library(lattice)
 library(zoo)
+library(xts)
 library(tseries)
+library(forecast)
 
 ##### Load the Data & Prep #####
 fpath <- 'C:/Users/Downi/Desktop/June2018_I65_SpeedData.csv'
@@ -14,6 +16,8 @@ traffic <- fread(fpath,col.names=c('xdid', 'tstamp', 'speed', 'score', 'lat', 'l
                                    'roadname', 'direction', 'bearing', 'startmm', 'endmm'))
 glimpse(traffic)
 
+#uniqueSegs <- traffic[,c('xdid','position','lon','lat', 'direction')] %>% unique
+#write.csv(uniqueSegs, './data/processed/uniqueSegs_I65.csv', row.names=F)
 uniqueSegs <- traffic[,c('xdid','position','lon','lat')] %>% unique %>% st_as_sf(coords=c('lon','lat'))
 #tm_shape(uniqueSegs) + tm_dots('position', style='cont')
 
@@ -30,7 +34,7 @@ traffic.s <- traffic[which(direction=='S'),]
 traffic.s <- traffic.s[order(tstamp),]
 traffic.s$position <- traffic.s$position %>% as.factor %>% droplevels
 
-# set the ordering for the position
+# check the ordering for the position
 summary(traffic.n$position)
 
 uniqueSegs.n <- traffic.n[,c('xdid','position','lon','lat')] %>% unique %>% 
@@ -98,7 +102,7 @@ for (i in unique(traffic15.n$position)){
   adf.stats[[count]] <- c('position'=i, 'statistic'=tmp$statistic, 'parameter'=tmp$parameter, 
                           'alternative'=tmp$alternative, 'p.value'=tmp$p.value, 'method'=tmp$method, 
                           'data.name'=tmp$data.name)
-
+  
   count = count + 1
 }
 # clean up stats
@@ -136,6 +140,32 @@ dev.off()
 oneSeg.n <- traffic.n[which(position==250),] # Should be between Indy and Lafayette
 twoSeg.n <- traffic.n[which(position==251),]
 xyplot(speed~tstamp, oneSeg.n, type='l')
+plot(oneSeg.n$speed, twoSeg.n$speed, pch=16)
+
+#15 min
+oneSeg.n.ts <- ts(oneSeg.n[,'speed'], frequency=1, start=as.integer(oneSeg.n$tstamp[1]))
+oneSeg.components <- decompose(oneSeg.n.ts)
+plot(oneSeg.components)
+
+#hourly
+oneSeg.n.ts <- ts(oneSeg.n[,'speed'], frequency=4, start=as.integer(oneSeg.n$tstamp[1]))
+oneSeg.components <- decompose(oneSeg.n.ts)
+plot(oneSeg.components)
+
+#daily
+oneSeg.n.ts <- ts(oneSeg.n[,'speed'], frequency=96, start=as.integer(oneSeg.n$tstamp[1]))
+oneSeg.components <- decompose(oneSeg.n.ts)
+plot(oneSeg.components)
+
+# weekly
+oneSeg.n.ts <- ts(oneSeg.n[,'speed'], frequency=672, start=as.integer(oneSeg.n$tstamp[1]))
+oneSeg.components <- decompose(oneSeg.n.ts)
+plot(oneSeg.components)
+
+# removing the seasonal and residual components will leave you with a time series of the trend data.=
+tmp <- oneSeg.n.ts - oneSeg.components$seasonal - oneSeg.components$random
+plot(tmp)
+
 
 # correcting data to be stationary
 adf.test(oneSeg.n$speed, k=96)
@@ -198,4 +228,118 @@ Box.test(oneSeg.n$speed, type='Ljung-Box')
 # sampling process).
 # Ha: The data are not independently distributed; they exhibit serial correlation.
 
+
+
+
+
+
+##### 2 minute time series #####
+
+
+# if you take all of the meta info that repeats and put it in the by argument, it'll only occur once.
+traffic2.n <- traffic.n[,list(speed=mean(speed)), 
+                        by=list(xdid=xdid, 
+                                position=position, 
+                                tstamp=as.POSIXct(cut(tstamp, '2 min'),tz='UTC'),
+                                lat=lat,
+                                lon=lon,
+                                roadname=roadname,
+                                direction=direction,
+                                bearing=bearing)]
+hour_freq <- 60/2
+day_freq <- hour_freq*24
+week_freq <- day_freq*7
+
+# grab speeds from one segment
+traffic2.n.250 <- traffic2.n[which(position==250),]
+plot(traffic2.n.250$tstamp, traffic2.n.250$speed, type='l')
+
+traffic2.n.msts <- msts(traffic2.n.250$speed,
+                        seasonal.periods=c(day_freq, week_freq))
+
+plot(traffic2.n.msts)
+decompose(traffic2.n.msts) %>% autoplot()
+mstl(traffic2.n.msts) %>% autoplot()
+
+traffic2.n.decomposed <- mstl(traffic2.n.msts)
+fit <- tbats(y=traffic2.n.msts)
+plot(forecast(fit))
+
+
+
+traffic2.n.tsibble <- tsibble::as_tsibble(traffic2.n, key='position', index='tstamp')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+tstamps <- traffic2.n.250$tstamp
+traffic2.n.xts <- xts(traffic2.n.250$speed, 
+                      order.by=tstamps, 
+                      tzone='UTC',
+                      frequency=week_freq)
+colnames(traffic2.n.xts) <- c('speed')
+traffic2.n.ts <- ts(traffic2.n.xts)
+plot.xts(traffic2.n.ts)
+ts(traffic2.n.xts)
+decompose(traffic2.n.xts) %>% autoplot()
+
+traffic2.n.ts <- ts(traffic2.n.250$speed, frequency=week_freq,
+                    start=c(2018,1))
+plot(traffic2.n.ts)
+traffic2.n.week <- ts(traffic2.n.250$speed, frequency=week_freq,
+                      start=as.integer(traffic2.n.250$tstamp[1]),
+                      end=as.integer(traffic2.n.250$tstamp[10]))
+traffic2.n.week.decomp <- decompose(traffic2.n.week)
+traffic2.n.week.decomp %>% autoplot()
+
+traffic2.n.week.decomp$x - traffic2.n.week.decomp$seasonal
+
+traffic2.n.250 <- msts(traffic2.n.250$speed, 
+                       seasonal.periods=c(day_freq, week_freq),
+                       start=as.integer(traffic2.n.250$tstamp[1]),
+                       end=as.integer(traffic2.n.250$tstamp[100]))
+plot(traffic2.n.250)
+decompose(traffic2.n.250) %>% autoplot()
+#NOTE: YOUR TIME OBJECTS ARE WRONG WHEN GOING TO TS OBJECTS
+# NEED TO SPECIFY THE END AND TIMESTEP IF YOU CAN
+
+# the hourly frequency doesn't change anything about the trend.
+# weekly or daily on their own still leave the trend exhibiting
+# seasonality.
+traffic2.n.stl <- mstl(traffic2.n.250)
+plot(traffic2.n.stl)
+traffic2.n.stl %>% autoplot()
+
+traffic2.n.stl.df <- as.data.frame(traffic2.n.stl)
+
+lm.stl <- lm(Data~Seasonal720+Seasonal5040, data=traffic2.n.stl.df)
+
+tslm(Data~., data=traffic2.n.stl) %>% autoplot()
+
+tmp %>% forecast(method='arima') %>% autoplot() 
+
+tmp2 <- tbats(traffic2.n.stl[,1])
+plot(forecast(tmp))
+
+
+tmp2 <- tbats(traffic2.n.250)
+plot(tmp2)
+
+tmp3 <- tmp2 %>% forecast
 

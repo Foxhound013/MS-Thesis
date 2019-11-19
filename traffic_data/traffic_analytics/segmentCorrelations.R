@@ -9,9 +9,13 @@ library(zoo)
 library(xts)
 library(tseries)
 library(forecast)
+library(tsibble)
+library(fable)
+library(feasts)
+library(ggplot2)
 
 ##### Load the Data & Prep #####
-fpath <- 'C:/Users/Downi/Desktop/June2018_I65_SpeedData.csv'
+fpath <- 'C:/Users/Downi/Desktop/June_I-65_2018.csv'
 traffic <- fread(fpath,col.names=c('xdid', 'tstamp', 'speed', 'score', 'lat', 'lon', 'position',
                                    'roadname', 'direction', 'bearing', 'startmm', 'endmm'))
 glimpse(traffic)
@@ -251,95 +255,135 @@ day_freq <- hour_freq*24
 week_freq <- day_freq*7
 
 # grab speeds from one segment
-traffic2.n.250 <- traffic2.n[which(position==250),]
-plot(traffic2.n.250$tstamp, traffic2.n.250$speed, type='l')
+traffic2.n.tsibble <- as_tsibble(traffic2.n, key='position', index='tstamp')
+glimpse(traffic2.n.tsibble)
+head(traffic2.n.tsibble)
 
-traffic2.n.msts <- msts(traffic2.n.250$speed,
-                        seasonal.periods=c(day_freq, week_freq))
+traffic2.n.250 <- traffic2.n.tsibble %>% dplyr::filter(position == 250)
+traffic2.n.250 %>% autoplot(speed)
 
-plot(traffic2.n.msts)
-decompose(traffic2.n.msts) %>% autoplot()
-mstl(traffic2.n.msts) %>% autoplot()
+traffic250.decomp <- traffic2.n.250 %>% STL(speed ~ season(period=c(day_freq, week_freq)))
+traffic250.decomp %>% autoplot(speed)
 
-traffic2.n.decomposed <- mstl(traffic2.n.msts)
-fit <- tbats(y=traffic2.n.msts)
-plot(forecast(fit))
-
+traffic250.decomp[,c('position', 'tstamp', 'remainder')] %>% 
+  ACF(remainder) %>% autoplot()
+# the acf plot shows that the remainder is definitely not white noise
 
 
-traffic2.n.tsibble <- tsibble::as_tsibble(traffic2.n, key='position', index='tstamp')
-
+traffic2.n.250 %>% model(ARIMA(speed)) %>% forecast(h='10 days') %>% autoplot()
 
 
 
+# the idea of these is sound but they take entirely too long. 
+# fit.trend <- traffic2.n.250 %>%
+#   model(trend_model = TSLM(speed ~ trend() ))
+# start <- Sys.time()
+# fit.day <- traffic2.n.250 %>%
+#   model(trend_model = TSLM(speed ~ season(period=c(day_freq)) ))
+# end <- Sys.time(); end-start
+# start <- Sys.time()
+# fit.week <- traffic2.n.250 %>%
+#   model(trend_model = TSLM(speed ~ season(period=c(week_freq )) ))
+# end <- Sys.time(); end-start
+
+fit %>% forecast(h='30 days') %>% 
+  autoplot()
+
+fit.fcst <- fit %>% forecast(h='30 days')
+
+# now try a simple linear regression model with trend and season
+fit <- traffic2.n.250 %>% 
+  model(trend_model=TSLM(speed~trend() + season(period=c(day_freq, week_freq))))
+head(fit)
+fit %>% forecast(h='10 days') %>% autoplot()
+
+traffic2.n.250 %>% model(SNAIVE(speed~lag('week'))) %>% 
+  forecast(h='10 days') %>% autoplot()
 
 
 
 
 
+# attempt a Fourier approach.
+data.spec <- spectrum(traffic2.n.250$speed) # same as TSA periodogram (diff graph)
+spec.df <- data.frame(freq=data.spec$freq, spec=data.spec$spec)
+spec.df <- spec.df[order(-spec.df$spec),]
+spec.df$time = 1/(spec.df$freq)
+head(spec.df)
+
+data.spec.p <- spec.pgram(traffic2.n.250$speed)
+spec.df2 <- data.frame(freq=data.spec.p$freq, spec = data.spec.p$spec)
+spec.df2 <- spec.df2[order(-spec.df2$spec),]
+spec.df2$time <- 1/(spec.df2$freq)
+head(spec.df2)
+
+p <- TSA::periodogram(traffic2.n.250$speed - mean(traffic2.n.250$speed))
+dd = data.frame(freq=p$freq, spec=p$spec)
+order = dd[order(-dd$spec),]
+order$time = 1/(order$freq)
+head(order)
+# above shows a beautiful justification for seasonality selection.
+
+# quickly revisit stl with new frequencies
+traffic250.decomp <- traffic2.n.250 %>% STL(speed ~ season(period=c(360, 720, 5400)))
+traffic250.decomp %>% autoplot(speed)
+
+traffic250.decomp %>% ACF(remainder) %>% autoplot()
+
+traffic2.n.250$detrend <- traffic2.n.250$speed - traffic250.decomp$trend
+
+traffic2.n.250 %>% autoplot(detrend)
+adf.test(traffic2.n.250$detrend)
+kpss.test(traffic2.n.250$detrend)
+acf(traffic2.n.250$detrend)
+pacf(traffic2.n.250$detrend)
+
+
+traffic2.n.250.fft <- fft(traffic2.n.250$speed)
+plot(seq(1,21600), traffic2.n.250.fft)
+
+
+msts.250 <- msts(traffic2.n.250$speed, seasonal.periods=c(720, 5040))
+
+fit <- tslm(msts.250 ~ trend + fourier(msts.250, K=c(3,3)))
+fit <- 
+msts.lm.fcst <- forecast(fit, data.frame(fourier(msts.250, K=c(3,3), h=5040)))
+plot(forecast(fit, h=100, xreg=fourier(msts.250, K=c(3,3))))
+
+fit <- TSLM(msts.250 ~ trend + season + fourier(msts.250, K=c(3,3)))
 
 
 
+# attempt stl with finer control using stlplus
+traffic2.n.250
+weekDays <- c("Sunday", "Monday", "Tuesday","Wednesday", "Thursday", "Friday", "Saturday")
+traffic2.n.250$weekDay <- weekdays(traffic2.n.250$tstamp) %>% as.factor()
+levels(traffic2.n.250$weekDay) <- weekDays
+
+tmp <- stlplus::stlplus(x=traffic2.n.250$speed,
+                        t=traffic2.n.250$tstamp,
+                        n.p=5040,
+                        s.window=5041,
+                        t.degree=0,
+                        s.label=traffic2.n.250$weekDay)
+plot(tmp)
+trafficDaily <- traffic2.n.250
+trafficDaily$speed <- trafficDaily$speed - tmp$data$seasonal - tmp$data$trend
+xyplot(speed ~ tstamp, data=trafficDaily, col='deepskyblue3', type='l')
+
+acf(traffic2.n.250$speed, lag.max=21600)
+pacf(traffic2.n.250$speed, lag.max=21600)
+acf(trafficDaily$speed, lag.max=21600)
+pacf(trafficDaily$speed, lag.max=21600)
 
 
+p2 <- TSA::periodogram(tmp$data$seasonal - mean(tmp$data$seasonal))
+dd2 = data.frame(freq=p2$freq, spec=p2$spec)
+order2 = dd[order(-dd2$spec),]
+order2$time = 1/(order2$freq)
+head(order2)
 
-
-
-
-
-
-tstamps <- traffic2.n.250$tstamp
-traffic2.n.xts <- xts(traffic2.n.250$speed, 
-                      order.by=tstamps, 
-                      tzone='UTC',
-                      frequency=week_freq)
-colnames(traffic2.n.xts) <- c('speed')
-traffic2.n.ts <- ts(traffic2.n.xts)
-plot.xts(traffic2.n.ts)
-ts(traffic2.n.xts)
-decompose(traffic2.n.xts) %>% autoplot()
-
-traffic2.n.ts <- ts(traffic2.n.250$speed, frequency=week_freq,
-                    start=c(2018,1))
-plot(traffic2.n.ts)
-traffic2.n.week <- ts(traffic2.n.250$speed, frequency=week_freq,
-                      start=as.integer(traffic2.n.250$tstamp[1]),
-                      end=as.integer(traffic2.n.250$tstamp[10]))
-traffic2.n.week.decomp <- decompose(traffic2.n.week)
-traffic2.n.week.decomp %>% autoplot()
-
-traffic2.n.week.decomp$x - traffic2.n.week.decomp$seasonal
-
-traffic2.n.250 <- msts(traffic2.n.250$speed, 
-                       seasonal.periods=c(day_freq, week_freq),
-                       start=as.integer(traffic2.n.250$tstamp[1]),
-                       end=as.integer(traffic2.n.250$tstamp[100]))
-plot(traffic2.n.250)
-decompose(traffic2.n.250) %>% autoplot()
-#NOTE: YOUR TIME OBJECTS ARE WRONG WHEN GOING TO TS OBJECTS
-# NEED TO SPECIFY THE END AND TIMESTEP IF YOU CAN
-
-# the hourly frequency doesn't change anything about the trend.
-# weekly or daily on their own still leave the trend exhibiting
-# seasonality.
-traffic2.n.stl <- mstl(traffic2.n.250)
-plot(traffic2.n.stl)
-traffic2.n.stl %>% autoplot()
-
-traffic2.n.stl.df <- as.data.frame(traffic2.n.stl)
-
-lm.stl <- lm(Data~Seasonal720+Seasonal5040, data=traffic2.n.stl.df)
-
-tslm(Data~., data=traffic2.n.stl) %>% autoplot()
-
-tmp %>% forecast(method='arima') %>% autoplot() 
-
-tmp2 <- tbats(traffic2.n.stl[,1])
-plot(forecast(tmp))
-
-
-tmp2 <- tbats(traffic2.n.250)
-plot(tmp2)
-
-tmp3 <- tmp2 %>% forecast
-
+#png('./figures/dailySpeeds.png')
+xyplot(speed ~ tstamp | factor(weekDay, levels = weekDays), data=traffic2.n.250, pch=16, 
+       col='deepskyblue3', alpha=0.5, layout=c(7,1))
+#dev.off()

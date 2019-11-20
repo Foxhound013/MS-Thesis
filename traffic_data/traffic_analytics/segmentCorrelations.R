@@ -20,8 +20,8 @@ traffic <- fread(fpath,col.names=c('xdid', 'tstamp', 'speed', 'score', 'lat', 'l
                                    'roadname', 'direction', 'bearing', 'startmm', 'endmm'))
 glimpse(traffic)
 
-#uniqueSegs <- traffic[,c('xdid','position','lon','lat', 'direction')] %>% unique
-#write.csv(uniqueSegs, './data/processed/uniqueSegs_I65.csv', row.names=F)
+uniqueSegs <- traffic[,c('xdid','position','lon','lat', 'direction')] %>% unique
+write.csv(uniqueSegs, './data/processed/uniqueSegs_I65.csv', row.names=F)
 uniqueSegs <- traffic[,c('xdid','position','lon','lat')] %>% unique %>% st_as_sf(coords=c('lon','lat'))
 #tm_shape(uniqueSegs) + tm_dots('position', style='cont')
 
@@ -372,10 +372,16 @@ trafficDaily$speed <- trafficDaily$speed - tmp$data$seasonal - tmp$data$trend
 xyplot(speed ~ tstamp, data=trafficDaily, col='deepskyblue3', type='l')
 
 acf(traffic2.n.250$speed, lag.max=21600)
-pacf(traffic2.n.250$speed, lag.max=21600)
 acf(trafficDaily$speed, lag.max=21600)
+
+
+pacf(traffic2.n.250$speed, lag.max=21600)
 pacf(trafficDaily$speed, lag.max=21600)
 
+daily.acf <- acf(trafficDaily$speed, lag.max=21600)
+sig_lev <- qnorm((1 + 0.95)/2)/sqrt(sum(!is.na(trafficDaily$speed)))
+missed.acf <- sum(daily.acf$acf >= sig_lev) + sum(daily.acf$acf <= -sig_lev)
+(missed.acf / length(trafficDaily$speed))*100
 
 p2 <- TSA::periodogram(tmp$data$seasonal - mean(tmp$data$seasonal))
 dd2 = data.frame(freq=p2$freq, spec=p2$spec)

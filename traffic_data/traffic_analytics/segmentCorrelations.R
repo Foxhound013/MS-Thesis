@@ -371,7 +371,7 @@ trafficDaily <- traffic2.n.250
 trafficDaily$speed <- trafficDaily$speed - tmp$data$seasonal - tmp$data$trend
 xyplot(speed ~ tstamp, data=trafficDaily, col='deepskyblue3', type='l')
 
-acf(traffic2.n.250$speed, lag.max=21600)
+acf(traffic2.n.250$speed, lag.max=180)
 acf(trafficDaily$speed, lag.max=21600)
 
 
@@ -393,3 +393,10 @@ head(order2)
 xyplot(speed ~ tstamp | factor(weekDay, levels = weekDays), data=traffic2.n.250, pch=16, 
        col='deepskyblue3', alpha=0.5, layout=c(7,1))
 #dev.off()
+
+
+
+length(traffic2.n.250$speed)
+length(lag(traffic2.n.250$speed, n=1))
+lag.plot(traffic2.n.250$speed, lags=1, pch=16, col='deepskyblue3',
+         main='Lag Plot of Segment 250 Traffic Speeds in June')

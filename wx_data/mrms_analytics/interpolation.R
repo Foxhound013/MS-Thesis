@@ -78,27 +78,45 @@ roads <- spTransform(roads, CRS('+init=epsg:32616'))
 start <- Sys.time()
 # Note: Ordinary kriging => precip~1
 # Universal kriging => precip~lon+lat
-mrms.vgm <- variogram(precip~1, data=mrms)
+mrms.vgm <- variogram(precip~1, data=mrms, cutoff=10000)
 #mrms.vgm <- variogram(precip~lon+lat, data=mrms) # takes some time
 end <- Sys.time(); end-start # roughly 4 - 10 minutes
 plot(mrms.vgm)
 show.vgms()
 mrms.vgm.fit <- fit.variogram(mrms.vgm, model=vgm('Sph', psill=1.6, nugget=1.5, range=100000)) # leaving parameters blank, gstat will sort them out
+mrms.vgm.fit <- fit.variogram(mrms.vgm, model=vgm('Exp'))
 
 plot(mrms.vgm, mrms.vgm.fit)
 
 
-# This is where a cross validation would be good to insert.
-# Do one for ordinary and universal kriging.
-# mrms.sub <- mrms[seq(1,10000),]
-# ordk.cv <- krige.cv(precip~1, mrms.sub, model=mrms.vgm.fit, nfold=nrow(mrms), maxdist=5000)
-# min(ordk.cv$residual); max(ordk.cv$residual)
-# mean(abs(ordk.cv$residual))*100; min(abs(ordk.cv$residual)); max(abs(ordk.cv$residual))
-#unvk.cv <- krige.cv(precip~lon+lat, locations=mrms, model=mrms.vgm)
+# This is roughly 7 minutes
 start <- Sys.time()
-mrms.kriged <- krige(precip~1, mrms, roads, model=mrms.vgm.fit, nmax=1000)
+mrms.kriged <- krige(precip~lon+lat, mrms, roads, model=mrms.vgm.fit, nmax=48)
 end <- Sys.time(); end-start
 # mrms.kriged <- krige(precip~lon+lat, mrms, roads, model=mrms.vgm.fit, maxdist=2, nmax=100)
+spplot(mrms.kriged)
+tmp <- sf::st_as_sf(mrms.kriged)
+
+
+tmp[tmp$var1.pred < 0,]$var1.pred <- 0
+
+tmap_mode('view')
+tm_shape(tmp) + tm_dots('var1.pred', style='cont')
+
+# try on subset
+roads.sub <- read.csv('../../traffic_data/traffic_analytics/data/processed/uniqueSegs_I65.csv')
+roads.sub <- roads.sub[1:100,]
+coordinates(roads.sub) <- ~lon+lat
+proj4string(roads.sub) <- '+init=epsg:4326 +proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0'
+roads.sub <- spTransform(roads.sub, CRS('+init=epsg:32616'))
+
+start <- Sys.time()
+mrms.kriged <- krige(precip~1, mrms, roads.sub, model=mrms.vgm.fit, nmax=48)
+end <- Sys.time(); end-start
+
+# this is a fair bit faster. Just do the north bound data.
+
+
 
 head(mrms.kriged)
 plot(mrms.kriged$var1.pred)

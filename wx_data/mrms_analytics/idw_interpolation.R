@@ -5,6 +5,7 @@ library(sp)
 
 start <- Sys.time()
 #fpath <- 'C:/Users/Downi/Desktop/scratch/smaller_sub.nc'
+setwd('/home/wdownin/thesis/MS-Thesis/wx_data/mrms_analytics')
 file <- tail(commandArgs(), n=1) # example input from bash '6_out743'
 fpath <- paste0('/depot/wwtung/data/loganD/wxData/mrms/archive/', file, '.nc')
 #fpath <- '/depot/wwtung/data/loganD/wxData/mrms/archive/6_out743.nc'

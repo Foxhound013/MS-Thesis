@@ -2,10 +2,12 @@ library(ncdf4)
 library(dplyr)
 library(gstat)
 library(sp)
-library(lattice)
 
 start <- Sys.time()
-fpath <- 'C:/Users/Downi/Desktop/scratch/smaller_sub.nc'
+#fpath <- 'C:/Users/Downi/Desktop/scratch/smaller_sub.nc'
+file <- tail(commandArgs(), n=1) # example input from bash '6_out743'
+fpath <- paste0('/depot/wwtung/data/loganD/wxData/mrms/archive/', file, '.nc')
+#fpath <- '/depot/wwtung/data/loganD/wxData/mrms/archive/6_out743.nc'
 mrms <- nc_open(fpath)
 
 lon <- ncvar_get(mrms, 'longitude')
@@ -67,5 +69,7 @@ while (i <= length(timeSeq$tstamp)) {
 
 nc_close(mrms)
 end <- Sys.time(); end-start
-write.csv(x=final.interp, file='./data/processed/tmp.csv', row.names=F)
+out_path <- paste0('/depot/wwtung/data/loganD/wxData/mrms/interpolated/',file,'.csv')
+write.csv(x=final.interp, file=out_path, row.names=F)
+#write.csv(x=final.interp, file='./data/processed/tmp.csv', row.names=F)
 

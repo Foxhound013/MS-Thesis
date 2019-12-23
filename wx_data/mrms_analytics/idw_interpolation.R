@@ -58,8 +58,8 @@ while (i <= length(timeSeq$tstamp)) {
     left_join(roads, by=c('lon', 'lat'))
   
   # cross validate and record MAE
-  idw_cv <- krige.cv(precip~1, precip.data, set = list(idp = 2), maxdist=5000, nfold=3)
-  precip.interp$MAE <- mean(abs(idw_cv$residual)) %>% round(2) # MAE
+  # idw_cv <- krige.cv(precip~1, precip.data, set = list(idp = 2), maxdist=5000, nfold=3)
+  # precip.interp$MAE <- mean(abs(idw_cv$residual)) %>% round(2) # MAE
   
   final.interp <- bind_rows(final.interp, precip.interp)
   

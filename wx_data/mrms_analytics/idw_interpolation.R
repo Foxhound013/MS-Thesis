@@ -54,7 +54,8 @@ while (i <= length(timeSeq$tstamp)) {
   # interpolate, create data frame, and join with road data.
   precip.interp <- idw(precip~1, precip.data, roads.sp, idp=2, maxdist=5000) %>% 
     spTransform(CRS('+init=epsg:4326')) %>% as.data.frame() %>% 
-    transmute(precip=round(var1.pred, 2), lon=round(lon, 5), lat=round(lat, 5)) %>% 
+    transmute(tstamp=timeSeq[i,1], precip=round(var1.pred, 2), 
+              lon=round(lon, 5), lat=round(lat, 5)) %>% 
     left_join(roads, by=c('lon', 'lat'))
   
   # cross validate and record MAE
@@ -62,7 +63,6 @@ while (i <= length(timeSeq$tstamp)) {
   # precip.interp$MAE <- mean(abs(idw_cv$residual)) %>% round(2) # MAE
   
   final.interp <- bind_rows(final.interp, precip.interp)
-  
   i <- i + 1
   setTxtProgressBar(pb, i)
   

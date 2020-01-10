@@ -99,24 +99,109 @@ traffic$dayofweek <- weekdays(traffic$tstamp) %>%
 #        layout=c(7,1), par.strip.text=list(cex=.8))
 # dev.off()
 
+traffic <- traffic %>% mutate(event=ifelse((precip>0 & speed <=55), yes=T, no=F))
 
-# norm defined as greater than 55
-traffic.events <- traffic %>% group_by(position) %>% 
-  transmute(tstamp=tstamp,
-            position=position,
-            speed=speed,
-            precip=precip,
-            daylight=daylight,
-            dayofweek=dayofweek,
-            event=)
+# non-event defined as > 55 mph and no precip
+nonevents.summary <- traffic %>% group_by(position) %>%
+  summarize(sumNight=sum(ifelse((daylight==F & event==F), yes=1, no=0), na.rm=T),
+            meanSpd_Night=mean(ifelse((daylight==F & event==F), yes=speed, no=NA), na.rm=T),
+            varSpd_Night=var(ifelse((daylight==F & event==F), yes=speed, no=NA), na.rm=T),
+            sdSpd_Night=sd(ifelse((daylight==F & event==F), yes=speed, no=NA), na.rm=T),
+            
+            meanPrecip_Night=mean(ifelse((daylight==F & event==F), yes=precip, no=NA), na.rm=T),
+            varPrecip_Night=var(ifelse((daylight==F & event==F), yes=precip, no=NA), na.rm=T),
+            sdPrecip_Night=sd(ifelse((daylight==F & event==F), yes=precip, no=NA), na.rm=T),
+            
+            sumDay=sum(ifelse((daylight==T & event==F), yes=1, no=0), na.rm=T),
+            meanSpd_Day=mean(ifelse((daylight==T & event==F), yes=speed, no=NA), na.rm=T),
+            varSpd_Day=var(ifelse((daylight==T & event==F), yes=speed, no=NA), na.rm=T),
+            sdSpd_Day=sd(ifelse((daylight==T & event==F), yes=speed, no=NA), na.rm=T),
+            
+            meanPrecip_Day=mean(ifelse((daylight==T & event==F), yes=precip, no=NA), na.rm=T),
+            varPrecip_Day=var(ifelse((daylight==T & event==F), yes=precip, no=NA), na.rm=T),
+            sdPrecip_Day=sd(ifelse((daylight==T & event==F), yes=precip, no=NA), na.rm=T))
+
+sum(nonevents.summary$sumNight)/(21600*458) * 100
+sum(nonevents.summary$sumDay)/(21600*458) * 100
+
+# Events defined as less than 55mph and precip
+events.summary <- traffic %>% group_by(position) %>% 
+  summarize(sumNight=sum(ifelse((daylight==F & event==T), yes=1, no=0), na.rm=T),
+            meanSpd_Night=mean(ifelse((daylight==F & event==T), yes=speed, no=NA), na.rm=T),
+            varSpd_Night=var(ifelse((daylight==F & event==T), yes=speed, no=NA), na.rm=T),
+            sdSpd_Night=sd(ifelse((daylight==F & event==T), yes=speed, no=NA), na.rm=T),
+            
+            meanPrecip_Night=mean(ifelse((daylight==F & event==T), yes=precip, no=NA), na.rm=T),
+            varPrecip_Night=var(ifelse((daylight==F & event==T), yes=precip, no=NA), na.rm=T),
+            sdPrecip_EventsNight=sd(ifelse((daylight==F & event==T), yes=precip, no=NA), na.rm=T),
+            
+            sumDay=sum(ifelse((daylight==T & event==T), yes=1, no=0), na.rm=T),
+            meanSpd_Day=mean(ifelse((daylight==T & event==T), yes=speed, no=NA), na.rm=T),
+            varSpd_Day=var(ifelse((daylight==T & event==T), yes=speed, no=NA), na.rm=T),
+            sdSpd_Day=sd(ifelse((daylight==T & event==T), yes=speed, no=NA), na.rm=T),
+            
+            meanPrecip_Day=mean(ifelse((daylight==T & event==T), yes=precip, no=NA), na.rm=T),
+            varPrecip_Day=var(ifelse((daylight==T & event==T), yes=precip, no=NA), na.rm=T),
+            sdPrecip_Day=sd(ifelse((daylight==T & event==T), yes=precip, no=NA), na.rm=T),)
+
+sum(events.summary$sumNight)/(21600*458) * 100 
+sum(events.summary$sumDay)/(21600*458) * 100
+
+# what is the difference? Negative indicates var in question was higher during an event.
+normVevent <- round((nonevents.summary - events.summary), 2)
+normVevent$position <- events.summary$position
+
+tmp.events <- events.summary %>% select(position, meanSpd_Night, meanSpd_Day)
+tmp.nonEvents <- nonevents.summary %>% select(position, meanSpd_Night, meanSpd_Day)
+
+eventVnon_percent <- 100 - (tmp.events/tmp.nonEvents) * 100
+eventVnon_percent$position <- tmp.events$position
+
+eventPrecip <- events.summary %>% select(position, meanPrecip_Night, meanPrecip_Day)
+eventVnon_percent <- eventVnon_percent %>% left_join(eventPrecip, by='position')
+
+xyplot(meanPrecip_Night~meanSpd_Night, data=eventVnon_percent, pch=16,
+       main='Percent Speed Reduction from Normal at Night',
+       xlab='Percent Speed Reduction From Normal', ylab='Mean Precipitation (mm/hr)',
+       xlim=c(0,70), ylim=c(0,70),
+       scales=list(x=list(at=seq(0,70,5)), y=list(at=seq(0,70,10))))
+
+densityplot(~meanSpd_Night, data=eventVnon_percent, pch=16,
+            main='Density Estimation of Speed Reduction from Normal at Night',
+            xlab='Percent Speed Reduction From Normal',
+            xlim=c(0,80), ylim=c(0,.1),
+            scales=list(x=list(at=seq(0,80,5)), y=list(at=seq(0,.1,0.01))))
 
 
-tmp <- traffic
-tmp$event <- ifelse((tmp$precip>0 & tmp$speed <=55), yes=T, no=F)
-sum(tmp[,'event']==T)
+xyplot(meanPrecip_Day~meanSpd_Day, data=eventVnon_percent, pch=16,
+       main='Percent Speed Reduction from Normal during Day',
+       xlab='Percent Speed Reduction From Normal', ylab='Mean Precipitation (mm/hr)',
+       xlim=c(0,70), ylim=c(0,70),
+       scales=list(x=list(at=seq(0,70,5)), y=list(at=seq(0,70,10))))
 
+densityplot(~meanSpd_Day, data=eventVnon_percent, pch=16,
+            main='Density Estimation of Speed Reduction from Normal during Day',
+            xlab='Percent Speed Reduction From Normal',
+            xlim=c(0,80), ylim=c(0,.1),
+            scales=list(x=list(at=seq(0,80,5)), y=list(at=seq(0,.1,0.01))))
 
+smoothScatter(eventVnon_percent$meanSpd_Day, eventVnon_percent$meanPrecip_Day)
+qqplot(eventVnon_percent$meanSpd_Day, eventVnon_percent$meanSpd_Night)
 
+qqplot(eventVnon_percent$meanSpd_Night, qcauchy(ppoints(nrow(eventVnon_percent))))
+qqnorm(eventVnon_percent$meanSpd_Day)
+qqnorm(eventVnon_percent$meanSpd_Night)
+hist(eventVnon_percent$meanSpd_Night)
+hist(eventVnon_percent$meanSpd_Day)
 
+plot(events.summary$position, events.summary$sumNight, col='blue', pch=16)
+points(events.summary$position, events.summary$sumDay, col='red', pch=16)
 
+plot(events.summary$position, events.summary$meanSpd_Night, col='blue', pch=16)
+points(events.summary$position, events.summary$meanSpd_Day, col='red', pch=16)
 
+plot(events.summary$position, events.summary$meanPrecip_Night, col='blue', pch=16)
+points(events.summary$position, events.summary$meanPrecip_Day, col='red', pch=16)
+
+plot(events.summary$position, events.summary$sdPrecip_Night, col='blue', pch=16)
+points(events.summary$position, events.summary$sdPrecip_Day, col='red', pch=16)

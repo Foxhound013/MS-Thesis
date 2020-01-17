@@ -7,7 +7,7 @@ traffic <- fread('../../../../../Desktop/June_I-65_2018.csv',
                  col.names=c('xdid', 'tstamp', 'speed', 'score', 'lat', 'lon', 'position',
                              'roadname', 'direction', 'bearing', 'startmm', 'endmm'))
 traffic <- traffic %>% filter(direction=='N')
-traffic$tstamp <- as.POSIXct(traffic$tstamp, tz='utc', origin='1970-01-01 00:00:00')
+# traffic$tstamp <- as.POSIXct(traffic$tstamp, tz='utc', origin='1970-01-01 00:00:00')
 
 precip <- fread('../../../../../Desktop/6_out743.csv')
 precip <- precip %>% filter(direction=='N')
@@ -15,26 +15,34 @@ precip$tstamp <- as.POSIXct(precip$tstamp, tz='utc', origin='1970-01-01 00:00:00
 
 # The traffic data is set to 1 minute resolution, scale down to 2 minute resolution
 # in order to match the precip data
-setDT(traffic)
-traffic <- traffic[,list(speed=mean(speed)), 
-                   by=list(xdid=xdid, 
-                           position=position, 
-                           tstamp=as.POSIXct(cut(tstamp, '2 min'),tz='UTC'),
-                           lat=lat,
-                           lon=lon,
-                           roadname=roadname,
-                           direction=direction,
-                           bearing=bearing)]
+# traffic <- traffic %>% filter((minute(tstamp)%%2)==0) %>% 
+#   left_join(precip, by=c('tstamp', 'lon', 'lat', 'position', 'xdid', 'direction'))
 
-traffic <- traffic %>% 
+# estimate missing data from previous 1 minute data, then cut down to 2 minute data only
+traffic <- traffic %>% mutate(tstamp=as.POSIXct(tstamp, tz='utc', origin='1970-01-01 00:00:00')) %>% 
+  group_by(position) %>% do(zoo::na.locf(.)) %>% filter((minute(tstamp)%%2)==0) %>% 
   left_join(precip, by=c('tstamp', 'lon', 'lat', 'position', 'xdid', 'direction'))
 
-# locate missing values and impute
-tmp <- traffic[is.na(traffic$precip),]
-# impute missing values with most recent prior value
-traffic <- traffic %>% group_by(position) %>% do(zoo::na.locf(.))
-traffic <- traffic[order(traffic$tstamp),]
-tmp <- traffic[is.na(traffic$precip),]
+
+# previuos method that would average 2 min slices
+# setDT(traffic)
+# traffic <- traffic[,list(speed=mean(speed)), 
+#                    by=list(xdid=xdid, 
+#                            position=position, 
+#                            tstamp=as.POSIXct(cut(tstamp, '2 min'),tz='UTC'),
+#                            lat=lat,
+#                            lon=lon,
+#                            roadname=roadname,
+#                            direction=direction,
+#                            bearing=bearing)]
+
+
+# # locate missing values and impute
+# tmp <- traffic[is.na(traffic$precip),] # two time slots are missing
+# # impute missing values with most recent prior value
+# traffic <- traffic %>% group_by(position) %>% do(zoo::na.locf(.))
+# traffic <- traffic[order(traffic$tstamp),]
+# tmp <- traffic[is.na(traffic$precip),]
 
 
 pdf('./figures/precipVspeed.pdf')

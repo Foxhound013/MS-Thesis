@@ -2,6 +2,8 @@ library(data.table)
 library(dplyr)
 library(lattice)
 library(hexbin)
+library(sf)
+library(tmap)
 
 traffic <- fread('../../../../../Desktop/June_I-65_2018.csv',
                  col.names=c('xdid', 'tstamp', 'speed', 'score', 'lat', 'lon', 'position',
@@ -100,11 +102,56 @@ traffic$dayofweek <- weekdays(traffic$tstamp) %>%
   factor(levels=c('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'))
 
 
+png('./figures/precipVspeed_hourOfDay.png')
+xyplot(precip~speed | factor(hours), data=traffic)
+dev.off()
+
+pdf('./figures/precipVspeed_hour_density.pdf', width=30)
+densityplot(~speed | factor(hours), data=traffic, plot.points=F, groups=,
+            layout=c(24,1))
+dev.off()
+
+
 # pdf('./figures/precipVspeed_dayofweek.pdf')
 # xyplot(precip~speed | factor(dayofweek), data=traffic, pch=16, col='deepskyblue3', alpha=0.5,
 #        layout=c(7,1), par.strip.text=list(cex=.8))
 # dev.off()
 
+
+# only defining the event this way here for density plots, redefined later.
+traffic <- traffic %>% mutate(event=ifelse((precip>0), yes=T, no=F))
+
+
+spd.cut <- cut(traffic$speed,breaks=c(0,25,50,75,100),overlap=0)
+
+pdf('./figures/precipVspeed_hour_density.pdf', width=15)
+densityplot(~speed | factor(hours)*spd.cut, data=traffic, plot.points=F, 
+            groups=event, auto.key=T, layout=c(12,2),
+            xlim=c(0,90))
+dev.off()
+
+
+
+spd.cut <- cut(traffic$speed,breaks=seq(0,95,5))
+pdf('./figures/precipVspeed_density.pdf', width=15)
+densityplot(~speed | spd.cut, data=traffic, plot.points=F,
+            groups=event, auto.key=T, layout=c(5,4))
+dev.off()
+
+pdf('./figures/bwplot_speedByHour.pdf', width=12)
+bwplot(event~speed | factor(hours), data=traffic, auto.key=T,
+       do.out=F, layout=c(12,2))
+dev.off()
+
+
+tmp.spd <- traffic %>% filter(speed <= 60)
+pdf('./figures/precipVspeed_lowspeed_hour_density.pdf', width=30)
+densityplot(~speed | factor(rev(hours)), data=traffic, plot.points=F, groups=event,
+            layout=c(24,1,1))
+dev.off()
+
+
+# redefining an event.
 traffic <- traffic %>% mutate(event=ifelse((precip>0 & speed <=55), yes=T, no=F))
 
 # non-event defined as > 55 mph and no precip
@@ -157,7 +204,18 @@ sum(events.summary$sumDay)/(21600*458) * 100
 normVevent <- round((nonevents.summary - events.summary), 2)
 normVevent$position <- events.summary$position
 
-plot(normVevent, pch=16, col='blue')
+
+plot(x=events.summary$meanSpd_Day, y=events.summary$position)
+points(x=nonevents.summary$meanSpd_Day,y=nonevents.summary$position, col='red')
+
+tmp <- events.summary %>% select(position, meanSpd_Day) %>% left_join(nonevents.summary, by='position') %>% 
+  select(position, meanSpd_Day.x, meanSpd_Day.y)
+bp <- boxplot(tmp$meanSpd_Day.x, tmp$meanSpd_Day.y, notch=T, outline=T, col=c('red','blue'))
+
+bwplot(~meanSpd_Day, data=events.summary, xlim=c(0,80))
+bwplot(~meanSpd_Day, data=nonevents.summary, xlim=c(0,80))
+
+plot(normVevent, pch=16, col='blue', cex=.1)
 
 # splom(normVevent, pch=16, alpha=0.5,
 #       scales=list(cex=0.01)
@@ -213,6 +271,17 @@ points(events.summary$position, events.summary$meanPrecip_Day, col='red', pch=16
 
 plot(events.summary$position, events.summary$sdPrecip_Night, col='blue', pch=16)
 points(events.summary$position, events.summary$sdPrecip_Day, col='red', pch=16)
+
+
+
+# form a count of each speed classification 0 - 90
+speed.count <- data.frame(speed=seq(0,95,1))
+
+
+
+
+
+
 
 
 
@@ -300,6 +369,8 @@ xyplot(meanPrecip_Night~meanSpd_Night, data=eventVnon_percent, pch=16,
        xlim=c(0,70), ylim=c(0,70),
        scales=list(x=list(at=seq(0,70,5)), y=list(at=seq(0,70,10))))
 
+xyplot(meanSpd_Night~position, data=eventVnon_percent, pch=16)
+
 smoothScatter(eventVnon_percent$meanSpd_Night, eventVnon_percent$meanPrecip_Night)
 
 densityplot(~meanSpd_Night, data=eventVnon_percent, pch=16,
@@ -337,11 +408,21 @@ plot(events.summary$position, events.summary$sdPrecip_Night, col='blue', pch=16)
 points(events.summary$position, events.summary$sdPrecip_Day, col='red', pch=16)
 
 
+tmp <- traffic %>% select(position, lat, lon, startmm, endmm) %>% unique() %>% 
+  right_join(eventVnon_percent, by='position')
+
+tmp <- st_as_sf(tmp, coords=c('lon','lat'))
+tmap_mode('view')
+tm_shape(tmp) + tm_dots('meanSpd_Day')
 
 
 
 
+# need another way to summarize the data
+tmp2 <- traffic.nc %>% group_by(position) %>% 
+  select(tstamp, speed, daylight, event)
 
+tmp2 %>% ifelse(event==T, '')
 
 
 

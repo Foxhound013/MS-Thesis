@@ -166,6 +166,30 @@ densityplot(~speed | factor(rev(hours)), data=traffic, plot.points=F, groups=eve
             layout=c(24,1,1))
 dev.off()
 
+traffic$construction <- ifelse(traffic$startmm >= 8 & traffic$startmm <= 16 |
+                                    traffic$startmm >= 50 & traffic$startmm <= 68 |
+                                    traffic$startmm >= 141 & traffic$startmm <= 165 |
+                                    traffic$startmm >= 167 & traffic$startmm <= 176 |
+                                    traffic$startmm >= 197 & traffic$startmm <= 207 |
+                                    traffic$startmm >= 229 & traffic$startmm <= 253,
+                                  yes=T, no=F)
+
+# produce levels indicating precip levels for bw plots
+tmp <- traffic
+#tmp$precip <- as.integer(tmp$precip)
+# tmp$rcat <- cut(tmp$precip, 10)
+tmp$rcat <- cut(tmp$precip, breaks=c(-1,0,0.01,10,20,30,40,50,60,70,80,90,100,140), right=F, include.lowest=T)
+tmp$section <- cut(tmp$position, breaks=c(0,100,200,300,400,500), right=F, include.lowest=T)
+
+pdf('./figures/bwplot_speedByCat.pdf')
+bwplot(rcat~speed | factor(section)*factor(construction), data=tmp, 
+       ylab='Precip. Range (mm/hr)', xlab='Speed (mph)', 
+       do.out=F, layout=c(1,5,2), cex=.3, scales=list(cex=.5),
+       par.strip.text=list(cex=.7))
+dev.off()
+
+
+
 
 # redefining an event.
 traffic <- traffic %>% mutate(event=ifelse((precip>0 & speed <=55), yes=T, no=F))

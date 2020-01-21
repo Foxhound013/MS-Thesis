@@ -22,9 +22,15 @@ precip$tstamp <- as.POSIXct(precip$tstamp, tz='utc', origin='1970-01-01 00:00:00
 
 # estimate missing data from previous 1 minute data, then cut down to 2 minute data only
 traffic <- traffic %>% mutate(tstamp=as.POSIXct(tstamp, tz='utc', origin='1970-01-01 00:00:00')) %>% 
-  group_by(position) %>% do(zoo::na.locf(.)) %>% filter((minute(tstamp)%%2)==0) %>% 
-  left_join(precip, by=c('tstamp', 'lon', 'lat', 'position', 'xdid', 'direction'))
+  group_by(position) %>% filter((minute(tstamp)%%2)==0) %>% 
+  left_join(precip, by=c('tstamp', 'lon', 'lat', 'position', 'xdid', 'direction')) %>% 
+  do(zoo::na.locf(.))
 
+anyNA(traffic$precip)
+
+road.map <- traffic %>% select(position,lon,lat) %>% unique() %>% st_as_sf(coords=c('lon','lat'))
+tmap_mode('view')
+tm_shape(road.map) + tm_dots()
 
 # previuos method that would average 2 min slices
 # setDT(traffic)
@@ -48,7 +54,8 @@ traffic <- traffic %>% mutate(tstamp=as.POSIXct(tstamp, tz='utc', origin='1970-0
 
 
 pdf('./figures/precipVspeed.pdf')
-xyplot(speed ~ precip | factor(position), data=traffic, layout=c(3,3))
+xyplot(precip ~ speed | factor(position), data=traffic, pch=16, alpha=0.2,
+       layout=c(3,3))
 dev.off()
 
 # traffic.numeric <- traffic[,c('speed', 'precip')]
@@ -121,6 +128,15 @@ dev.off()
 # only defining the event this way here for density plots, redefined later.
 traffic <- traffic %>% mutate(event=ifelse((precip>0), yes=T, no=F))
 
+pdf('./figures/precipVspeed.pdf')
+xyplot(precip ~ speed | factor(position), data=traffic, pch=16, alpha=0.2,
+       group=event, auto.key=T, layout=c(3,3))
+dev.off()
+
+pdf('./figures/positionVspeed.pdf', width=8, height=10)
+xyplot(position ~ speed, data=traffic, pch=16, alpha=0.2,
+       group=event, auto.key=T)
+dev.off()
 
 spd.cut <- cut(traffic$speed,breaks=c(0,25,50,75,100),overlap=0)
 
@@ -286,15 +302,44 @@ speed.count <- data.frame(speed=seq(0,95,1))
 
 
 # set construction zones as T/F column
-traffic$construction <- ifelse(tmp.tmp$startmm >= 8 & tmp.tmp$startmm <= 16 |
-                                 tmp.tmp$startmm >= 50 & tmp.tmp$startmm <= 68 |
-                                 tmp.tmp$startmm >= 141 & tmp.tmp$startmm <= 165 |
-                                 tmp.tmp$startmm >= 167 & tmp.tmp$startmm <= 176 |
-                                 tmp.tmp$startmm >= 197 & tmp.tmp$startmm <= 207 |
-                                 tmp.tmp$startmm >= 229 & tmp.tmp$startmm <= 253,
-                               yes=T, no=F)
+traffic.nc <- traffic
+traffic.nc$construction <- ifelse(traffic.nc$startmm >= 8 & traffic.nc$startmm <= 16 |
+                                       traffic.nc$startmm >= 50 & traffic.nc$startmm <= 68 |
+                                       traffic.nc$startmm >= 141 & traffic.nc$startmm <= 165 |
+                                       traffic.nc$startmm >= 167 & traffic.nc$startmm <= 176 |
+                                       traffic.nc$startmm >= 197 & traffic.nc$startmm <= 207 |
+                                       traffic.nc$startmm >= 229 & traffic.nc$startmm <= 253,
+                                     yes=T, no=F)
 # remove construction
-traffic.nc <- traffic %>% filter(construction==F)
+traffic.nc <- traffic.nc %>% filter(construction==F)
+
+
+pdf('./figures/positionVspeed_nc.pdf', width=8, height=10)
+xyplot(position ~ speed, data=traffic.nc, pch=16, alpha=0.2,
+       group=event, auto.key=T)
+dev.off()
+
+pdf('./figures/positionVspeed_nc_hours.pdf', width=10, height=8)
+xyplot(position ~ speed | factor(hours), data=traffic.nc, pch=16, alpha=0.2,
+       group=event, auto.key=T, layout=c(12,1,2))
+dev.off()
+
+pdf('./figures/positionVspeed_nc_hours&day.pdf', width=10, height=8)
+xyplot(position ~ speed | factor(dayofweek)*factor(hours), data=traffic.nc, pch=16, alpha=0.2,
+       group=event, auto.key=T, layout=c(7,2))
+dev.off()
+
+# produce levels indicating precip levels for bw plots
+tmp <- traffic.nc
+#tmp$precip <- as.integer(tmp$precip)
+# tmp$rcat <- cut(tmp$precip, 10)
+tmp$rcat <- cut(tmp$precip, breaks=c(-1,0,10,20,30,40,50,60,70,80,90,100,140))
+tmp$section <- cut(tmp$position, breaks=c(0,100,200,300,400,500))
+
+pdf('./figures/bwplot_speedByCat_nc.pdf')
+bwplot(rcat~speed | factor(section), data=tmp, ylab='Precip. Range (mm/hr)', xlab='Speed (mph)', 
+       do.out=F, layout=c(1,5), cex=.3, scales=list(cex=.5))
+dev.off()
 
 
 nonevents.summary <- traffic.nc %>% group_by(position) %>%

@@ -195,12 +195,39 @@ dev.off()
 
 
 # calculate the quantities available to boxplot
-tmp.test2 <- tmp %>% filter(position >= 0 & position <= 100 & construction==F & precip == 0)
-quantile(tmp.test2$speed, probs=seq(0,1,.25))
+for (i in seq(0,100,10)) {
+  tmp.test2 <- tmp %>% filter(position >= 260 & position <= 360 & construction==T & precip == 0)
+  tmp.test <- tmp %>% filter(position >= 260 & position <= 360 & construction==T & 
+                               precip >= i & precip < i+10)
+  
+  baseline.md <- median(tmp.test2$speed)
+  rainy.md <- median(tmp.test$speed)
+  
+  print(100 - (rainy.md / baseline.md)*100)
+  # need to record sample sizes somehow
+}
 
-tmp.test <- tmp %>% filter(position >= 0 & position <= 100 & construction==T & 
-                             precip >= 40 & precip < 50)
-quantile(tmp.test$speed, probs=seq(0,1,.25))
+
+
+
+tmp.test2 <- tmp %>% filter(position >= 0 & position <= 100 & construction==F & precip == 0)
+baseline <- quantile(tmp.test2$speed, probs=seq(0,1,.25))
+baseline.md <- median(tmp.test2$speed)
+baseline.mn <- mean(tmp.test2$speed)
+
+tmp.test <- tmp %>% filter(position >= 0 & position <= 100 & construction==F & 
+                             precip >= 30 & precip < 40)
+rainy <- quantile(tmp.test$speed, probs=seq(0,1,.25))
+rainy.md <- median(tmp.test$speed)
+rainy.mn <- mean(tmp.test$speed)
+sd(tmp.test$speed)
+var(traffic$speed)
+
+100 - (rainy.mn / baseline.mn)*100
+
+# it may be worthwhile to write this as a loop and output to a df so that
+# these values can be plotted against each other.
+# how can -INF be interpreted?
 
 
 
@@ -357,8 +384,8 @@ xyplot(position ~ speed, data=traffic.nc, pch=16, alpha=0.2,
 dev.off()
 
 pdf('./figures/positionVspeed_nc_hours.pdf', width=10, height=8)
-xyplot(position ~ speed | factor(hours), data=traffic.nc, pch=16, alpha=0.2,
-       group=event, auto.key=T, layout=c(12,1,2))
+xyplot(position ~ speed | factor(hours)*factor(construction), data=traffic, 
+       pch=16, alpha=0.2, group=event, auto.key=T, layout=c(12,1,4))
 dev.off()
 
 pdf('./figures/positionVspeed_nc_hours&day.pdf', width=10, height=8)

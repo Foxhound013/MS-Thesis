@@ -3,6 +3,9 @@ secrets.py
 *.pyo
 *.pyc
 hConf_Tseries.pdf
+June_I-65_2018.csv
+6_out743.csv
+I-65N_WxSpd.csv
 
 # Directories to ignore
 .ipynb_checkpoints/

@@ -14,7 +14,7 @@ road.map <- traffic %>% select(position,lon,lat) %>% unique() %>% st_as_sf(coord
 tmap_mode('view')
 tm_shape(road.map) + tm_dots()
 
-
+traffic <- traffic %>% mutate(event=ifelse(precip > 0, yes=T, no=F))
 
 pdf('./figures/precipVspeed.pdf')
 xyplot(precip ~ speed | factor(position), data=traffic, pch=16, alpha=0.2,

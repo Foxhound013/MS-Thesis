@@ -199,7 +199,10 @@ xyplot(max_precip~ds, data=segStats.tmp, pch=16, alpha=0.2)
 
 smoothScatter(segStats.tmp$ds, segStats.tmp$max_precip)
 
-segStats.tmp$cluster <- kmeans(segStats.tmp$max_precip, centers=3)$cluster
-xyplot(max_precip~ds, data=segStats.tmp, pch=16, alpha=0.2, groups=cluster, auto.key=T)
+segStats.tmp$rcat <- cut(segStats.tmp$max_precip, 
+                breaks=c(-1,0,0.01,10,20,30,40,50,60,70,80,90,100,140), 
+                right=F, include.lowest=T)
 
-bwplot(cluster~t2r, data=segStats.tmp)
+xyplot(max_precip~ds, data=segStats.tmp, pch=16, alpha=0.2, groups=rcat, auto.key=T)
+
+bwplot(rcat~ds, data=segStats.tmp)

@@ -46,15 +46,63 @@ traffic$weekday <- factor(traffic$weekday, levels=weekdaySeq)
 traffic$hours <- hour(traffic$tstamp)
 traffic$hours <- factor(traffic$hours, levels=hourSeq)
 
-weekdayDistro <- traffic %>% group_by(weekday, score) %>% tally() %>% mutate(percent=(n/length(traffic$xdid))*100)
+weekdayDistro <- traffic %>% group_by(weekday, score) %>% tally() %>% 
+        mutate(percent=(n/length(traffic$xdid))*100)
+weekdayDistro$score <- ifelse(weekdayDistro$score==20, yes='Medium-confidence', no='High-confidence')
+weekdayDistro$score <- factor(weekdayDistro$score)
 
+# DO NOT USE THIS PLOT
+# suffers from sample size of the data poitns available
+png('./figures/ConfidenceValuesByPercentage_AndDayOfWeek.png', width=3, heigh=3, res=300, units='in')
 xyplot(percent~weekday, data=weekdayDistro, groups=score, 
-       auto.key=T, type=c('p','l','g'))
+       cex=0.9,
+       main=list(label='Confidence Values by Percentage and Day of Week',
+               cex=0.7),
+       ylab=list(label='Percent of Dataset', cex=0.5),
+       xlab=list(label='Day of Week', cex=0.5),
+       auto.key=list(columns=2, space='top', cex=0.4), 
+       type=c('p','l','g'), ylim=c(0,18), 
+       scales=list(x=list(rot=45),
+                   y=list(at=seq(0,20,2)),
+                   cex=0.4)
+       )
+dev.off()
 
 # verify that percentages add up to 1
 sum(weekdayDistro$percent)
 
+hourDistro <- traffic %>% group_by(hours, score) %>% tally() %>% 
+        mutate(percent=(n/length(traffic$xdid))*100)
+hourDistro$score <- ifelse(hourDistro$score==20, yes='Medium-confidence', no='High-confidence')
+hourDistro$score <- factor(hourDistro$score)
 
+xyplot(percent~hours, data=hourDistro, groups=score, 
+       auto.key=T, type=c('p','l','g'))
+
+png('./figures/ConfidenceValuesByPercentage_AndHourofDay.png', width=3, heigh=3, res=300, units='in')
+xyplot(percent~hours, data=hourDistro, groups=score, 
+       cex=0.4,
+       pch=16,
+       col=c('#0080FF','#FF40FF'),
+       main=list(label='Confidence Values by Percentage and Day of Week',
+                 cex=0.7),
+       ylab=list(label='Percent of Dataset', cex=0.5),
+       xlab=list(label='Day of Week', cex=0.5),
+       key=list(x=-0.08, y=1.1, corner=c(0,0), columns=2,
+                points=list(pch=16,col=c('#0080FF','#FF40FF'),cex=0.4),
+                text=list(levels(hourDistro$score), cex=0.5)
+                ),
+       type=c('p','l','g'), ylim=c(0,5), 
+       scales=list(x=list(rot=90),
+                   y=list(at=seq(0,5,.5)),
+                   cex=0.4)
+)
+dev.off()
+
+
+
+# verify that percentages add up to 1
+sum(hourDistro$percent)
 
 ##### Low confidence segments #####
 paste0(round((length(lConf$xdid)/length(traffic$xdid))*100, 3), '% of the data')

@@ -117,15 +117,15 @@ generate_stats <- function(segment, segData) {
   eventRow <- which(segData$event == T)
   
   segment.stats <- data.frame()
-  eventCenter <- 21
+  eventCenter <- 16
   for (i in eventRow) {
     
     # verify that a full window can be constructed, if not move on.
-    if(i <= 20 | i >= 21580) {
+    if(i <= 15 | i >= 21585) {
       next()
     }
     
-    eventWindow <- tmp[seq(i-20,i+20),]
+    eventWindow <- tmp[seq(i-15,i+15),]
     precipPresent <- ifelse(sum(eventWindow[seq(1,eventCenter),'precip']) > 0, yes=T, no=next())
     
     # generate stats
@@ -176,11 +176,14 @@ generate_stats <- function(segment, segData) {
   return(segment.stats)
 }
 
+# subset
 tmp <- traffic %>% filter(position > 230 & position < 240) %>% 
   mutate(avgSpd=frollmean(x=speed,n=2,fill=NA))
+
+# full set
 tmp <- traffic %>% mutate(avgSpd=frollmean(x=speed,n=2,fill=NA))
 # event detection
-tmp <- tmp %>% mutate(event=ifelse( (100-(speed/avgSpd)*100) >= 8, yes=T, no=F),
+tmp <- tmp %>% mutate(event=ifelse( (100-(speed/avgSpd)*100) >= 10, yes=T, no=F),
                       pct_drop=100-(speed/avgSpd)*100)
 
 uniqueSegs <- tmp %>% select(position) %>% unique()
@@ -196,7 +199,8 @@ for (i in uniqueSegs) {
 
 segStats.tmp <- segment.stats %>% filter(max_precip >= 0)
 xyplot(max_precip~ds, data=segStats.tmp, pch=16, alpha=0.2)
-
+densityplot(~ds, data=segStats.tmp)
+densityplot(~max_precip, data=segStats.tmp)
 smoothScatter(segStats.tmp$ds, segStats.tmp$max_precip)
 
 segStats.tmp$rcat <- cut(segStats.tmp$max_precip, 
@@ -206,3 +210,12 @@ segStats.tmp$rcat <- cut(segStats.tmp$max_precip,
 xyplot(max_precip~ds, data=segStats.tmp, pch=16, alpha=0.2, groups=rcat, auto.key=T)
 
 bwplot(rcat~ds, data=segStats.tmp)
+bwplot(rcat~t2i, data=segStats.tmp)
+bwplot(rcat~t2r, data=segStats.tmp)
+
+bwplot(ds~rcat, data=segStats.tmp,)
+
+
+
+
+

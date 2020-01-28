@@ -6,14 +6,16 @@ library(dplyr)
 library(tidyr)
 library(lattice)
 
-fpath <- 'C:/Users/Downi/Desktop/June2018_I65_SpeedData.csv'
+fpath <- 'C:/Users/Downi/Desktop/June_I-65_2018.csv'
 traffic <- fread(fpath,col.names=c('xdid', 'tstamp', 'speed', 'score', 'lat', 'lon', 'position',
                                    'roadname', 'direction', 'bearing', 'startmm', 'endmm'))
 glimpse(traffic)
 
+traffic <- traffic %>% filter(direction=='N')
 uniqueSegs <- traffic[,c('xdid','position','lon','lat')] %>% unique %>% st_as_sf(coords=c('lon','lat'))
-#tmap_mode('view')
-#tm_shape(uniqueSegs) + tm_dots()
+
+tmap_mode('view')
+tm_shape(uniqueSegs) + tm_dots() + tm_scale_bar()
 
 # fix up the data
 traffic$tstamp <- as.POSIXct(traffic$tstamp, tz='UTC')
@@ -27,12 +29,30 @@ hConf <- traffic[which(score==30),]
 mConf <- traffic[which(score==20),]
 lConf <- traffic[which(score==10),]
 
-length(hConf$xdid)/length(traffic$xdid)
-length(mConf$xdid)/length(traffic$xdid)
-length(lConf$xdid)/length(traffic$xdid)
+length(hConf$xdid)/length(traffic$xdid) * 100
+length(mConf$xdid)/length(traffic$xdid) * 100
+length(lConf$xdid)/length(traffic$xdid) * 100
 
 # isolate the time series data for completing the subsets
 tSeries <- traffic[,c('xdid','tstamp')]
+
+
+# day of week and time of day distribution
+weekdaySeq <- c('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
+hourSeq <- c('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14',
+             '15', '16', '17', '18', '19', '20', '21', '22', '23')
+traffic$weekday <- weekdays(traffic$tstamp)
+traffic$weekday <- factor(traffic$weekday, levels=weekdaySeq)
+traffic$hours <- hour(traffic$tstamp)
+traffic$hours <- factor(traffic$hours, levels=hourSeq)
+
+weekdayDistro <- traffic %>% group_by(weekday, score) %>% tally() %>% mutate(percent=(n/length(traffic$xdid))*100)
+
+xyplot(percent~weekday, data=weekdayDistro, groups=score, 
+       auto.key=T, type=c('p','l','g'))
+
+# verify that percentages add up to 1
+sum(weekdayDistro$percent)
 
 
 
@@ -71,10 +91,7 @@ xyplot(speed~tstamp | factor(xdid), data=mConf.complete, type='l', pch=16, col='
        layout=c(1,6), ylim=seq(0,70,10))
 dev.off()
 
-# day of week and time of day distribution
-weekdaySeq <- c('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
-hourSeq <- c('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14',
-             '15', '16', '17', '18', '19', '20', '21', '22', '23')
+
 
 
 mConf.weekday <- data.table(table(mConf.complete$xdid,mConf.complete$weekday))
@@ -86,6 +103,8 @@ colnames(mConfWeekday.count) <- c('weekday', 'frequency')
 mConfWeekday.count$weekday <- factor(mConfWeekday.count$weekday, levels=weekdaySeq)
 mConfWeekday.count$percent <- (mConfWeekday.count$frequency/length(traffic$tstamp))*100
 sum(mConfWeekday.count$percent) # verifies validity of the data
+
+unique_mConf <- mConf %>% select(xdid) %>% unique() 
 
 options(scipen=7)
 png('./figures/mConfByDayofWeek.png')

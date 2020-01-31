@@ -137,7 +137,7 @@ generate_stats <- function(segment, segData) {
     }
     
     eventWindow <- segData[seq(i-15,i+15),]
-    precipPresent <- ifelse(sum(eventWindow[seq(1,eventCenter),'precip']>5) > 0, yes=T, no=next)
+    precipPresent <- ifelse(sum(eventWindow[seq(1,eventCenter),'precip']>0) > 0, yes=T, no=next)
     
     # png(paste0('./figures/automatedEventFigs/',segment,'_',i,'.png'))
     # p <- xyplot(speed+avgSpd+precip~tstamp,data=eventWindow, type=c('p','l','g'), auto.key=T)
@@ -150,20 +150,27 @@ generate_stats <- function(segment, segData) {
     max_precip <- max(eventWindow$precip)
     max_precip.tstamp <- eventWindow[which(eventWindow$precip == max_precip), 'tstamp'][[1]]
     
+    max_precip.prior <- max(eventWindow[seq(1,eventCenter-1),'precip'])
+    max_precip.post <- max(eventWindow[seq(eventCenter+1,eventCenter+15),'precip'])
+    precip.event <- eventWindow[eventCenter,'precip'][[1]] # precip during event
+    avgPrecip.prior <- mean(eventWindow$precip[seq(1,eventCenter-1)])
+    
+    precipCnt.after <- sum(eventWindow[seq(eventCenter,eventCenter+15),'precip']>0)
+    
     # Time to Recover (t2r)
-    start.tstamp <- eventWindow[eventCenter,'tstamp'][[1]]
-    start.avgSpd <- eventWindow[eventCenter, 'avgSpd'][[1]] # this is the threshold for recovery
+    event.tstamp <- eventWindow[eventCenter,'tstamp'][[1]]
+    recovery.speed <- eventWindow[eventCenter, 'avgSpd'][[1]] # this is the threshold for recovery
     # perhaps the recovery theshold should use the time step before spd.
     
     tmp3 <- eventWindow[as.integer(rownames(eventWindow))>=eventCenter,]
-    end.tstamp <- tmp3[tmp3$speed > start.avgSpd,]$tstamp[1] # time of recovery (if not possible, produces NA)
+    end.tstamp <- tmp3[tmp3$speed >= recovery.speed,]$tstamp[1] # time of recovery (if not possible, produces NA)
     
-    t2r <- difftime(end.tstamp,start.tstamp) %>% as.integer()
+    t2r <- difftime(end.tstamp,event.tstamp) %>% as.integer()
     #is.na(t2r)
     
     # Time to Impact (t2i)
     start.precip <- eventWindow[eventWindow$precip>0,]$tstamp[1]
-    t2i <- difftime(start.tstamp, start.precip) %>% as.integer()
+    t2i <- difftime(event.tstamp, start.precip) %>% as.integer()
     
     # record all stats in a single data frame
     tmp.stats <- data.frame(segment=segment,
@@ -171,8 +178,13 @@ generate_stats <- function(segment, segData) {
                             ds=ds,
                             max_precip=max_precip,
                             max_precip.tstamp=max_precip.tstamp,
-                            event.start=start.tstamp,
-                            recovery.speed=start.avgSpd,
+                            max_precip.prior=max_precip.prior,
+                            max_precip.post=max_precip.post,
+                            precip.event=precip.event,
+                            avgPrecip.prior=avgPrecip.prior,
+                            precipCnt.after=precipCnt.after,
+                            event.start=event.tstamp,
+                            recovery.speed=recovery.speed,
                             recovery.tstamp=end.tstamp,
                             t2r=t2r,
                             precipStart.tstamp=start.precip,
@@ -195,8 +207,8 @@ generate_stats <- function(segment, segData) {
 }
 
 # subset
-tmp <- traffic %>% ungroup() %>%  filter(position>=102 & position<=123) %>% 
-  mutate(avgSpd=frollmean(x=speed,n=2,fill=NA))
+# tmp <- traffic %>% ungroup() %>%  filter(position>=102 & position<=123) %>% 
+#   mutate(avgSpd=frollmean(x=speed,n=2,fill=NA))
 
 # full set
 tmp <- traffic %>% mutate(avgSpd=frollmean(x=speed,n=2,fill=NA))
@@ -213,35 +225,58 @@ for (i in uniqueSegs[[1]]) {
 
 
 segStats.tmp <- segment.stats %>% filter(max_precip >= 0)
-xyplot(max_precip~ds | factor(construction), data=segStats.tmp, pch=16, alpha=0.2,
-       layout=c(1,2,1))
-xyplot(max_precip~ds, data=segStats.tmp, pch=16, alpha=0.2)
-densityplot(~ds | factor(construction), data=segStats.tmp, layout=c(1,2,1))
-densityplot(~max_precip, data=segStats.tmp)
-smoothScatter(segStats.tmp$ds, segStats.tmp$max_precip)
+segStats.tmp$gradient <- segStats.tmp$precip.event - segStats.tmp$max_precip.prior
 
-segStats.tmp$rcat <- cut(segStats.tmp$max_precip, 
-                breaks=c(-1,0,0.01,10,20,30,40,50,60,70,80,90,100,140), 
+# positive difference would indicate that the precip was stronger than prior to when the event occurred
+xyplot(gradient~ds | factor(construction), data=segStats.tmp, pch=16, alpha=0.2,
+       layout=c(1,2,1))
+smoothScatter(segStats.tmp$ds, segStats.tmp$gradient)
+
+xyplot(max_precip.prior~ds | factor(construction), data=segStats.tmp, pch=16, alpha=0.2,
+       layout=c(1,2,1))
+smoothScatter(segStats.tmp$ds, segStats.tmp$max_precip.prior)
+
+densityplot(~ds, data=segStats.tmp, auto.key=T, groups=construction, plot.points=F)
+
+
+# define precipitation prior to the event into categories for boxplot purposes
+segStats.tmp$rcat <- cut(segStats.tmp$max_precip.prior, 
+                #breaks=c(-85,-65,-45,-25,-0.01,0,0.01,25,45,65,85),
+                         breaks=c(0,0.01,2.5,5,10,20,40,60,80,100,140), 
                 right=F, include.lowest=T)
 
-xyplot(max_precip~ds, data=segStats.tmp, pch=16, alpha=0.2, groups=rcat, auto.key=T)
+# Plan here was to label the sample size on the plot, ggplot may be better for this.
+# bwplot(rcat~ds, data=segStats.tmp,
+#        panel=function(x, y, ...){
+#          panel.bwplot(x, y, ...)
+#          panel.text(10, 5, labels='Hey')
+#          panel.text(12, 4.5, labels='Yo!')
+#        })
 
-bwplot(rcat~ds, data=segStats.tmp,
-       panel=function(x, y, ...){
-         panel.bwplot(x, y, ...)
-         panel.text(10, 5, labels='Hey')
-         panel.text(12, 4.5, labels='Yo!')
-       })
-
-bwplot(rcat~ds | factor(construction), data=segStats.tmp, layout=c(1,2,1))
+segStats.tmp$construction <- as.factor(segStats.tmp$construction) 
+levels(segStats.tmp$construction) <- c('Non-Construction','Construction')
+bwplot(rcat~ds | factor(construction), data=segStats.tmp, 
+       xlab='Delta Speed (miles/hr)', ylab='Precipitation Ranges (mm/hr)', layout=c(1,2,1))
 
 
-bwplot(rcat~t2i, data=segStats.tmp)
-bwplot(rcat~t2r, data=segStats.tmp)
+bwplot(rcat~t2r | factor(construction), data=segStats.tmp, layout=c(1,2,1))
+bwplot(factor(precipCnt.after)~t2r | factor(construction), data=segStats.tmp, layout=c(1,2,1))
+# percentage of non-recovery events
+sum(is.na(segStats.tmp$t2r))/length(segStats.tmp$t2r) * 100
 
-bwplot(ds~rcat | factor(segment), data=segStats.tmp, layout=c(1,5,50))
 
-# try tallying up the sample sizes
-segStats.summary <- segStats.tmp %>% group_by(rcat) %>% tally()
+# t2i doesn't work very well as is.
+bwplot(rcat~t2i | factor(construction), data=segStats.tmp, layout=c(1,2,1))
+# filter 30 minute impacts since so many are 30 minutes
+segStats.tmp2 <- segStats.tmp %>% filter(t2i<30)
+bwplot(rcat~t2i | factor(construction), data=segStats.tmp2, layout=c(1,2,1))
+
+# percentage of 30 minute impact events
+length(segStats.tmp2$t2i)/length(segStats.tmp$t2i) * 100
+
+
+
+# tallying up the sample sizes
+segStats.summary <- segStats.tmp %>% group_by(rcat,construction) %>% tally()
 
 

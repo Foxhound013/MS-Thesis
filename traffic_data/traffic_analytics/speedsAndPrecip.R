@@ -1,6 +1,6 @@
 library(data.table)
 library(dplyr)
-library(lattice)
+library(lattice); library(latticeExtra);
 library(hexbin)
 library(sf)
 library(tmap)
@@ -20,6 +20,18 @@ pdf('./figures/precipVspeed.pdf')
 xyplot(precip ~ speed | factor(position), data=traffic, pch=16, alpha=0.2,
        layout=c(3,3))
 dev.off()
+
+# add urban vs rural
+traffic <- traffic %>% mutate(urban=ifelse(position >= 2 & position <= 15,
+                                           yes='Louisville', 
+                                           no=ifelse(position >= 189 & position <= 239,
+                                                     yes='Indianapolis',
+                                                     no=ifelse(position >= 440 & position <= 458,
+                                                               yes='Northern Indiana',
+                                                               no='Rural')
+                                                     )
+                                           )
+                              )
 
 
 
@@ -115,8 +127,13 @@ dev.off()
 tmp <- traffic
 #tmp$precip <- as.integer(tmp$precip)
 # tmp$rcat <- cut(tmp$precip, 10)
-tmp$rcat <- cut(tmp$precip, breaks=c(-1,0,0.01,10,20,30,40,50,60,70,80,90,100,140), right=F, include.lowest=T)
+precip.ranges <- c(0,0.01,2.5,5,10,20,30,40,50,60,70,80,150)
+tmp$rcat <- cut(tmp$precip, breaks=precip.ranges, right=F, include.lowest=T)
+# tmp$rcat <- cut(tmp$precip, breaks=c(-1,0,0.01,10,20,30,40,50,60,70,80,90,100,140), right=F, include.lowest=T)
 tmp$section <- cut(tmp$position, breaks=c(0,100,200,300,400,500), right=F, include.lowest=T)
+
+tmp$construction <- as.factor(tmp$construction)
+levels(tmp$construction) <- c('Non-Construction','Construction')
 
 pdf('./figures/bwplot_speedByCat.pdf')
 bp <- bwplot(rcat~speed | factor(section)*factor(construction), data=tmp, 
@@ -125,44 +142,70 @@ bp <- bwplot(rcat~speed | factor(section)*factor(construction), data=tmp,
        par.strip.text=list(cex=.7))
 dev.off()
 
+# consider factoring by daylight as well
+pdf('./figures/bwplot_speedByCat&urban.pdf')
+bwplot(rcat~speed | factor(urban)*factor(construction), data=tmp,
+       ylab='Precipitation Range (mm/hr)', xlab='Speed (mph)',
+       do.out=F, layout=c(1,4), cex=.3, axis=axis.grid, xlim=c(0,90),
+       scales=list(cex=.5, x=list(at=seq(0,90,5))),
+       par.strip.text=list(cex=.7), coef=1.5)
+dev.off()
 
 # levelplot(speed~position*hours | factor(dayofweek), data=tmp)
 
+traffic.summary.r <- tmp %>% group_by(urban,construction,rcat) %>% 
+  summarise(min.r=min(speed), max.r=max(speed), median.r=median(speed), std.r=sd(speed), n.r=n())
 
-# calculate the quantities available to boxplot
-for (i in seq(0,100,10)) {
-  tmp.test2 <- tmp %>% filter(position >= 260 & position <= 360 & construction==T & precip == 0)
-  tmp.test <- tmp %>% filter(position >= 260 & position <= 360 & construction==T & 
-                               precip >= i & precip < i+10)
+traffic.baseline <- tmp %>% filter(precip == 0) %>% group_by(urban,construction,rcat) %>% 
+  summarise(min.b=min(speed), max.b=max(speed), median.b=median(speed), std.b=sd(speed), n.b=n())
   
-  baseline.md <- median(tmp.test2$speed)
-  rainy.md <- median(tmp.test$speed)
-  
-  print(100 - (rainy.md / baseline.md)*100)
-  # need to record sample sizes somehow
-}
+traffic.summary <- left_join(traffic.summary.r, traffic.baseline, )
+# NOTE: THESE FILL IN LINES WILL HAVE TO CHANGE IF ANY NEW STATS ARE ADDED OR REGIONS.
+traffic.summary[seq(2,12),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[1,c('min.b','max.b','median.b', 'std.b', 'n.b')]
+traffic.summary[seq(14,21),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[13,c('min.b','max.b','median.b', 'std.b', 'n.b')]
+traffic.summary[seq(23,30),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[22,c('min.b','max.b','median.b', 'std.b', 'n.b')]
+traffic.summary[seq(32,39),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[31,c('min.b','max.b','median.b', 'std.b', 'n.b')]
+traffic.summary[seq(41,51),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[40,c('min.b','max.b','median.b', 'std.b', 'n.b')]
+traffic.summary[seq(53,63),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[52,c('min.b','max.b','median.b', 'std.b', 'n.b')]
+
+
+percent.reduction <- 100 - (traffic.summary$median.r / traffic.summary$median.b)*100
+traffic.summary$percent.reduction <- percent.reduction %>% round(2)
+
+bwplot(percent.reduction~construction, data=traffic.summary,groups=construction)
+levelplot(percent.reduction~construction*urban, data=traffic.summary)
+
+# graphical method for presenting the tabular percent reduction data.
+dotplot(rcat~percent.reduction | factor(construction), data=traffic.summary, groups=urban, auto.key=T,
+        pch=16, xlab='Percent Reduction from Normal', layout=c(2,1),
+        ylab='Precipitation Range (mm/hr)', alpha=0.5, xlim=c(-1,13),
+        axis=axis.grid, scales=list(x=list(at=seq(-2,14,2))))
 
 
 
 
-tmp.test2 <- tmp %>% filter(position >= 0 & position <= 100 & construction==F & precip == 0)
-baseline <- quantile(tmp.test2$speed, probs=seq(0,1,.25))
-baseline.md <- median(tmp.test2$speed)
-baseline.mn <- mean(tmp.test2$speed)
 
-tmp.test <- tmp %>% filter(position >= 0 & position <= 100 & construction==F & 
-                             precip >= 30 & precip < 40)
-rainy <- quantile(tmp.test$speed, probs=seq(0,1,.25))
-rainy.md <- median(tmp.test$speed)
-rainy.mn <- mean(tmp.test$speed)
-sd(tmp.test$speed)
-var(traffic$speed)
 
-100 - (rainy.mn / baseline.mn)*100
 
-# it may be worthwhile to write this as a loop and output to a df so that
-# these values can be plotted against each other.
-# how can -INF be interpreted?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

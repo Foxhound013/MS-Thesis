@@ -15,11 +15,12 @@ tmap_mode('view')
 tm_shape(road.map) + tm_dots()
 
 traffic <- traffic %>% mutate(event=ifelse(precip > 0, yes=T, no=F))
+segs <- traffic %>% select(position) %>% unique()
 
-pdf('./figures/precipVspeed.pdf')
-xyplot(precip ~ speed | factor(position), data=traffic, pch=16, alpha=0.2,
-       layout=c(3,3))
-dev.off()
+# pdf('./figures/precipVspeed.pdf')
+# xyplot(precip ~ speed | factor(position), data=traffic, pch=16, alpha=0.2,
+#        layout=c(3,3))
+# dev.off()
 
 # add urban vs rural
 traffic <- traffic %>% mutate(urban=ifelse(position >= 2 & position <= 15,
@@ -32,8 +33,20 @@ traffic <- traffic %>% mutate(urban=ifelse(position >= 2 & position <= 15,
                                                      )
                                            )
                               )
+traffic$construction <- as.factor(traffic$construction)
+levels(traffic$construction) <- c('Non-Construction','Construction')
+
+sub <- traffic[seq(1,10000),]
 
 
+
+pdf('./figures/positionVspeed_hours.pdf', width=10, height=8)
+
+xyplot(position ~ speed | factor(hours)*factor(construction), data=traffic, 
+       ylab='Road Position', xlab='Speed (mph)', par.strip.text=list(cex=1),
+       par.settings=list(layout.heights=list(strip=1)),
+       pch=16, alpha=0.2, group=event, auto.key=T, layout=c(12,1,1),)
+dev.off()
 
 # clustering to discriminate between standard speeds and reduced speeds.
 
@@ -181,8 +194,13 @@ dotplot(rcat~percent.reduction | factor(construction), data=traffic.summary, gro
         ylab='Precipitation Range (mm/hr)', alpha=0.5, xlim=c(-1,13),
         axis=axis.grid, scales=list(x=list(at=seq(-2,14,2))))
 
+tmp2 <- traffic[seq(1,10000),]
 
-
+pdf('./figures/positionVspeed_hours.pdf', width=10, height=8)
+xyplot(position ~ speed | factor(hours)*factor(construction), data=traffic, 
+       ylab='Road Position', xlab='Speed (mph)', par.strip.text=list(cex=.5),
+       pch=16, alpha=0.2, group=event, auto.key=T, layout=c(12,1,4),)
+dev.off()
 
 
 
@@ -361,10 +379,7 @@ xyplot(position ~ speed, data=traffic.nc, pch=16, alpha=0.2,
        group=event, auto.key=T)
 dev.off()
 
-pdf('./figures/positionVspeed_nc_hours.pdf', width=10, height=8)
-xyplot(position ~ speed | factor(hours)*factor(construction), data=traffic, 
-       pch=16, alpha=0.2, group=event, auto.key=T, layout=c(12,1,4))
-dev.off()
+
 
 pdf('./figures/positionVspeed_nc_hours&day.pdf', width=10, height=8)
 xyplot(position ~ speed | factor(dayofweek)*factor(hours), data=traffic.nc, pch=16, alpha=0.2,

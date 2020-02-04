@@ -1,6 +1,6 @@
 library(data.table)
 library(dplyr)
-library(lattice)
+library(lattice); library(latticeExtra);
 library(sf); library(tmap);
 
 traffic <- fread('./data/processed/I-65N_WxSpd.csv')
@@ -190,6 +190,10 @@ generate_stats <- function(segment, segData) {
                             precipStart.tstamp=start.precip,
                             t2i=t2i,
                             construction=eventWindow[eventCenter,'construction'][[1]])
+    # following vars could be added to the output but seem to cause warnings that need investigated
+    # hours=eventWindow[eventCenter,'hours'][[1]],
+    # daylight=eventWindow[eventCenter,'daylight'][[1]],
+    # dayofweek=eventWindow[eventCenter,'dayofweek'][[1]]
     
     segment.stats <- bind_rows(segment.stats, tmp.stats)
     
@@ -236,14 +240,17 @@ xyplot(max_precip.prior~ds | factor(construction), data=segStats.tmp, pch=16, al
        layout=c(1,2,1))
 smoothScatter(segStats.tmp$ds, segStats.tmp$max_precip.prior)
 
-densityplot(~ds, data=segStats.tmp, auto.key=T, groups=construction, plot.points=F)
-
+# may be a good one, shows that the process is slightly bimodal.
+densityplot(~ds, data=segStats.tmp, auto.key=T, groups=construction, plot.points=F,
+            axis=axis.grid, xlim=c(-50,80),
+            scales=list(x=list(at=seq(-50,80,10)))
+            )
 
 # define precipitation prior to the event into categories for boxplot purposes
-segStats.tmp$rcat <- cut(segStats.tmp$max_precip.prior, 
-                #breaks=c(-85,-65,-45,-25,-0.01,0,0.01,25,45,65,85),
-                         breaks=c(0,0.01,2.5,5,10,20,40,60,80,100,140), 
-                right=F, include.lowest=T)
+precip.ranges <- c(0,0.01,2.5,5,10,20,30,40,50,60,70,80,150)
+#c(0,0.01,2.5,5,10,20,40,60,80,100,140) #old ranges
+segStats.tmp$rcat <- cut(segStats.tmp$max_precip.prior,
+                         breaks=precip.ranges, right=F, include.lowest=T)
 
 # Plan here was to label the sample size on the plot, ggplot may be better for this.
 # bwplot(rcat~ds, data=segStats.tmp,
@@ -255,21 +262,41 @@ segStats.tmp$rcat <- cut(segStats.tmp$max_precip.prior,
 
 segStats.tmp$construction <- as.factor(segStats.tmp$construction) 
 levels(segStats.tmp$construction) <- c('Non-Construction','Construction')
-bwplot(rcat~ds | factor(construction), data=segStats.tmp, 
-       xlab='Delta Speed (miles/hr)', ylab='Precipitation Ranges (mm/hr)', layout=c(1,2,1))
+bwplot(rcat~ds | factor(construction), data=segStats.tmp, do.out=F,
+       xlab='Delta Speed (mph)', ylab='Precipitation Range (mm/hr)', 
+       axis=axis.grid, layout=c(1,2,1), xlim=c(-20,60),
+       scales=list(x=list(at=seq(-20,60,10)))
+       )
+
+# percentage of negative ds events
+length(segStats.tmp[segStats.tmp$ds < 0, 'ds'])/length(segStats.tmp$ds) * 100
 
 
-bwplot(rcat~t2r | factor(construction), data=segStats.tmp, layout=c(1,2,1))
-bwplot(factor(precipCnt.after)~t2r | factor(construction), data=segStats.tmp, layout=c(1,2,1))
+bwplot(rcat~t2r | factor(construction), data=segStats.tmp, do.out=F, 
+       xlab='Time to Recovery (mins)', ylab='Precipitation Range (mm/hr)',
+       axis=axis.grid, xlim=c(0,30.2), 
+       scales=list(x=list(at=seq(0,30,5))),
+       layout=c(1,2,1))
+
+# bwplot(factor(precipCnt.after)~t2r | factor(construction), data=segStats.tmp, layout=c(1,2,1))
 # percentage of non-recovery events
 sum(is.na(segStats.tmp$t2r))/length(segStats.tmp$t2r) * 100
 
 
 # t2i doesn't work very well as is.
-bwplot(rcat~t2i | factor(construction), data=segStats.tmp, layout=c(1,2,1))
+bwplot(rcat~t2i | factor(construction), data=segStats.tmp, do.out=F, 
+       xlab='Time to Impact (mins)', ylab='Precipitation Range (mm/hr)',
+       axis=axis.grid, xlim=c(0,30.2), 
+       scales=list(x=list(at=seq(0,30,5))),
+       layout=c(1,2,1))
+
 # filter 30 minute impacts since so many are 30 minutes
 segStats.tmp2 <- segStats.tmp %>% filter(t2i<30)
-bwplot(rcat~t2i | factor(construction), data=segStats.tmp2, layout=c(1,2,1))
+bwplot(rcat~t2i | factor(construction), data=segStats.tmp2, do.out=F, 
+       xlab='Time to Impact (mins)', ylab='Precipitation Range (mm/hr)',
+       axis=axis.grid, xlim=c(-0.5,30), 
+       scales=list(x=list(at=seq(0,30,5))),
+       layout=c(1,2,1))
 
 # percentage of 30 minute impact events
 length(segStats.tmp2$t2i)/length(segStats.tmp$t2i) * 100
@@ -278,5 +305,23 @@ length(segStats.tmp2$t2i)/length(segStats.tmp$t2i) * 100
 
 # tallying up the sample sizes
 segStats.summary <- segStats.tmp %>% group_by(rcat,construction) %>% tally()
+max(segStats.tmp$ds)
+min(segStats.tmp$ds)
 
 
+
+ds.summary <- segStats.tmp %>% group_by(construction,rcat) %>% 
+  summarise(min=min(ds), max=max(ds), median=median(ds), std=sd(ds), mean=mean(ds), n=n())
+
+t2i.summary <- segStats.tmp %>% group_by(construction,rcat) %>% 
+  summarise(min=min(t2i), max=max(t2i), median=median(t2i), std=sd(t2i), mean=mean(t2i), n=n())
+
+t2i.summary.no30 <- segStats.tmp2 %>% group_by(construction,rcat) %>% 
+  summarise(min=min(t2i), max=max(t2i), median=median(t2i), std=sd(t2i), mean=mean(t2i), n=n())
+
+t2r.summary <- segStats.tmp %>% group_by(construction,rcat) %>% 
+  summarise(min=min(t2r), max=max(t2r), median=median(t2r), std=sd(t2r), mean=mean(t2r), n=n())
+
+
+mean(segStats.tmp$t2i)
+mean(segStats.tmp$t2r, na.rm=T)

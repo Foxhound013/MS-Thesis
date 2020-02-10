@@ -2,20 +2,24 @@ library(data.table)
 library(dplyr)
 library(lattice); library(latticeExtra);
 library(hexbin)
+library(ggplot2); library(ggforce);
 library(sf)
 library(tmap)
 
 traffic <- fread('./data/processed/I-65N_WxSpd.csv')
-traffic$tstamp <- as.POSIXct(traffic$tstamp, tz='utc', origin='1970-01-01 00:00:00')
-
+#traffic$tstamp <- as.POSIXct(traffic$tstamp, tz='utc', origin='1970-01-01 00:00:00')
+# traffic$day <- mday(traffic$tstamp)
 anyNA(traffic$precip)
 
-road.map <- traffic %>% select(position,lon,lat) %>% unique() %>% st_as_sf(coords=c('lon','lat'))
+road.map <- traffic %>% select(startmm,lon,lat) %>% unique() %>% st_as_sf(coords=c('lon','lat'))
 tmap_mode('view')
 tm_shape(road.map) + tm_dots()
 
 traffic <- traffic %>% mutate(event=ifelse(precip > 0, yes=T, no=F))
 segs <- traffic %>% select(position) %>% unique()
+
+# MAY NEED TO REMOVE LATER BUT STRIP OUT 20s
+traffic <- traffic %>% filter(score == 30)
 
 # pdf('./figures/precipVspeed.pdf')
 # xyplot(precip ~ speed | factor(position), data=traffic, pch=16, alpha=0.2,
@@ -30,23 +34,192 @@ traffic <- traffic %>% mutate(urban=ifelse(position >= 2 & position <= 15,
                                                      no=ifelse(position >= 440 & position <= 458,
                                                                yes='Northern Indiana',
                                                                no='Rural')
-                                                     )
                                            )
-                              )
+)
+)
 traffic$construction <- as.factor(traffic$construction)
 levels(traffic$construction) <- c('Non-Construction','Construction')
+traffic$dayofweek <- factor(traffic$dayofweek, levels=c('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'))
+levels(traffic$dayofweek)
 
-sub <- traffic[seq(1,10000),]
+traffic$weekend <- ifelse(traffic$dayofweek == 'Saturday' | traffic$dayofweek == 'Sunday',
+                          yes='Weekend', no='Weekday')
+traffic$weekend <- factor(traffic$weekend, levels=c('Weekday', 'Weekend'))
+levels(traffic$weekend)
+
+#traffic <- traffic %>% filter(weekend=='Weekday')
+
+# drop out known crashes
+# sub <- traffic %>% f
+# sub <- traffic %>% filter(day!= 8 & hours!=20 & (mins != 38 | mins != 40) & (startmm < 100 | startmm > 110))
+
+
+sub <- traffic[sample(nrow(traffic),10000),]
+
+xyplot(startmm~speed | factor(dayofweek)*factor(hours)*factor(construction),
+       data=sub, groups=event, pch=16, alpha=0.3, layout=c(7,1,1))
+
+
+# pull out just the Indy region
+indy <- sub %>% filter(urban=='Rural')
+
+xyplot(startmm~speed | factor(dayofweek)*factor(hours)*factor(construction),
+       data=indy, groups=event, pch=16, alpha=0.3, layout=c(5,1,1))
 
 
 
 pdf('./figures/positionVspeed_hours.pdf', width=10, height=8)
 
-xyplot(position ~ speed | factor(hours)*factor(construction), data=traffic, 
-       ylab='Road Position', xlab='Speed (mph)', par.strip.text=list(cex=1),
-       par.settings=list(layout.heights=list(strip=1)),
-       pch=16, alpha=0.2, group=event, auto.key=T, layout=c(12,1,1),)
+xyplot(startmm ~ speed | factor(dayofweek)*factor(hours)*factor(construction), 
+       data=sub, ylab='Road Position', xlab='Speed (mph)', par.strip.text=list(cex=1),
+       par.settings=list(layout.heights=list(strip=1)), groups=event,
+       pch=16, alpha=0.2, grid=T, layout=c(3,2,1), cex=.5)
+
+xyplot(speed ~ startmm | factor(dayofweek)*factor(hours)*factor(construction), 
+       data=traffic, ylab='Road Position', xlab='Speed (mph)', par.strip.text=list(cex=1),
+       par.settings=list(layout.heights=list(strip=1)), groups=event,
+       pch=16, alpha=0.2, grid=T, layout=c(2,1), cex=.5)
+
 dev.off()
+
+hexbinplot(startmm ~ speed | factor(dayofweek)*factor(event)*factor(construction),
+           data=sub, ylab='Road Position', xlab='Speed (mph)', bins=50,
+           aspect=1, layout=c(7,2))
+
+
+levelplot(speed~as.integer(tstamp)*startmm, data=sub)
+colorRampPalette()
+
+levelplot(speed~tstamp*startmm | factor(dayofweek)*factor(construction), data=sub, 
+          aspect=1, 
+          col.regions=colorRampPalette(c("pink", "red", "orange","blue", "green"))
+)
+
+myPanel <- function(x,y) {
+  panel.grid(v = 2)
+  panel.xyplot(x, y, pch=16)
+  panel.loess(x, y, span = .01, col='red')
+}
+
+
+xyplot(startmm~speed | factor(hours), data=sub, groups=event, 
+       pch=16, layout=c(6,1,1),
+)
+
+
+speed.shingle <- equal.count(sub$speed, number=10, overlap=0)
+attributes(speed.shingle)
+levels(speed.shingle)
+
+spd.cut <- cut(traffic$speed, breaks=c(0,20,40,60,80,100))
+spd.cut.sub <- cut(sub$speed, breaks=c(0,20,40,60,80,100))
+
+pdf('./figures/positionVspeed_bySpeed.pdf')
+
+
+xyplot(startmm~speed | spd.cut.sub*factor(dayofweek)*factor(hours)*factor(construction),
+       data=sub, groups=event,
+       pch=16, alpha=0.2,
+       scales=list(x=list(relation='free')),
+       layout=c(5,1,1),
+       prepanel=function(x,y){
+         
+         #lims=c(min(x),max(x))
+         if (length(x) == 0) {
+           return()
+         } else {
+           if (x <= 20) {
+             xlim=c(0,20)
+             scales=list(x=list(at=seq(0,20,5)))
+           } else if (x > 20 & x <= 40) {
+             xlim=c(20,40)
+             scales=list(x=list(at=seq(20,40,5)))
+           } else if (x > 40 & x <= 60) {
+             xlim=c(40,60)
+             scales=list(x=list(at=seq(40,60,5)))
+           } else if (x > 60 & x <= 80) {
+             xlim=c(60,80)
+             scales=list(x=list(at=seq(60,80,5)))
+           } else if (x > 80) {
+             xlim=c(80,100)
+             scales=list(x=list(at=seq(80,100,5)))
+           }
+         }
+         
+         
+         #lims=c(ifelse(length(x)>0, yes=min(x), no=NA), ifelse(length(x)>0, yes=max(x), no=NA))
+         #list(xlim=lims)
+       }
+)
+
+
+dev.off()
+
+spd.cut.sub <- cut(sub$speed, breaks=c(0,10,20,30,40,50,
+                                       51,52,53,54,55,56,57,58,59,
+                                       60,61,62,63,64,65,66,67,68,69,
+                                       70,71,72,73,74,75,76,77,78,79,
+                                       80,100))
+pdf('./figures/positionVspeed_stripplot.pdf')
+stripplot(position~spd.cut.sub | factor(dayofweek)*factor(hours)*factor(construction), 
+          data=sub,
+          jitter.data=T, groups=event,
+          pch=16, alpha=0.2,
+          layout=c(1,1),
+          scales=list(x=list(rot=90)))
+dev.off()
+
+
+xyplot(speed~startmm | factor(dayofweek)*factor(hours)*factor(construction), 
+       data=sub,
+       groups=event,
+       layout=c(1,2,1))
+
+test <- traffic %>% group_by(startmm, dayofweek, hours, construction, event) %>% 
+  summarize(avgSpd=mean(speed, na.rm=T))
+
+xyplot(avgSpd~startmm | factor(dayofweek)*factor(hours)*factor(construction),
+       data=test, groups=event,
+       pch=16, alpha=0.4,
+       layout=c(7,1)
+)
+
+levelplot(avgSpd~factor(event)*startmm | factor(dayofweek)*factor(hours)*factor(construction), 
+          data=test, layout=c(7,1,1),
+          scales=list(x=list(rot=90)),
+          col.regions=colorRampPalette(c("pink", "red", "orange", "green")),
+          ylim=c(0,270)
+)
+
+
+pdf('./figures/levplot_test.pdf')
+levelplot(avgSpd~factor(event)*startmm | factor(dayofweek)*factor(hours)*factor(construction), 
+          data=test, layout=c(7,2,1),
+          scales=list(x=list(rot=90)),
+          col.regions=colorRampPalette(c("pink", "red", "orange", "green")),
+          ylim=c(0,270)
+)
+dev.off()
+
+pdf('./figures/loessPlot_Events.pdf')
+xyplot(speed~startmm | factor(dayofweek)*factor(hours)*factor(construction),
+       data=traffic, layout=c(7,2,1), groups=event, auto.key=T,
+       pch=16, alpha=0.5,
+       type=c('smooth'), span=2/3, degree=1
+)
+dev.off()
+
+pdf('./figures/positionVspeed_bySpeed.pdf')
+xyplot(startmm~speed | factor(dayofweek)*factor(hours)*factor(construction),
+       data=traffic, layout=c(7,1,1), groups=event, auto.key=T,
+       pch=16, alpha=0.2)
+dev.off()
+
+
+
+
+
+
 
 # clustering to discriminate between standard speeds and reduced speeds.
 
@@ -145,24 +318,34 @@ tmp$rcat <- cut(tmp$precip, breaks=precip.ranges, right=F, include.lowest=T)
 # tmp$rcat <- cut(tmp$precip, breaks=c(-1,0,0.01,10,20,30,40,50,60,70,80,90,100,140), right=F, include.lowest=T)
 tmp$section <- cut(tmp$position, breaks=c(0,100,200,300,400,500), right=F, include.lowest=T)
 
-tmp$construction <- as.factor(tmp$construction)
-levels(tmp$construction) <- c('Non-Construction','Construction')
+#tmp$construction <- as.factor(tmp$construction)
+#levels(tmp$construction) <- c('Non-Construction','Construction')
 
 pdf('./figures/bwplot_speedByCat.pdf')
 bp <- bwplot(rcat~speed | factor(section)*factor(construction), data=tmp, 
-       ylab='Precip. Range (mm/hr)', xlab='Speed (mph)', 
-       do.out=F, layout=c(1,5,2), cex=.3, scales=list(cex=.5),
-       par.strip.text=list(cex=.7))
+             ylab='Precip. Range (mm/hr)', xlab='Speed (mph)', 
+             do.out=F, layout=c(1,5,2), cex=.3, scales=list(cex=.5),
+             par.strip.text=list(cex=.7))
 dev.off()
 
+sub <- tmp[sample(nrow(tmp),10000),]
+
 # consider factoring by daylight as well
-pdf('./figures/bwplot_speedByCat&urban.pdf')
-bwplot(rcat~speed | factor(urban)*factor(construction), data=tmp,
+pdf('./figures/bwplot_speedByCat&urban&others.pdf', width=10, height=7)
+bwplot(rcat~speed | factor(urban)*factor(construction)*factor(hours)*factor(dayofweek), 
+       data=tmp, layout=c(1,4),
        ylab='Precipitation Range (mm/hr)', xlab='Speed (mph)',
-       do.out=F, layout=c(1,4), cex=.3, axis=axis.grid, xlim=c(0,90),
+       do.out=F, cex=.3, axis=axis.grid, xlim=c(0,90),
        scales=list(cex=.5, x=list(at=seq(0,90,5))),
        par.strip.text=list(cex=.7), coef=1.5)
 dev.off()
+
+bwplot(rcat~speed | factor(urban)*factor(construction)*factor(dayofweek)*factor(hours), 
+       data=tmp, layout=c(1,4),
+       ylab='Precipitation Range (mm/hr)', xlab='Speed (mph)',
+       do.out=F, cex=.3, axis=axis.grid, xlim=c(0,90),
+       scales=list(cex=.5, x=list(at=seq(0,90,5))),
+       par.strip.text=list(cex=.7), coef=1.5)
 
 # levelplot(speed~position*hours | factor(dayofweek), data=tmp)
 
@@ -171,7 +354,7 @@ traffic.summary.r <- tmp %>% group_by(urban,construction,rcat) %>%
 
 traffic.baseline <- tmp %>% filter(precip == 0) %>% group_by(urban,construction,rcat) %>% 
   summarise(min.b=min(speed), max.b=max(speed), median.b=median(speed), std.b=sd(speed), n.b=n())
-  
+
 traffic.summary <- left_join(traffic.summary.r, traffic.baseline, )
 # NOTE: THESE FILL IN LINES WILL HAVE TO CHANGE IF ANY NEW STATS ARE ADDED OR REGIONS.
 traffic.summary[seq(2,12),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[1,c('min.b','max.b','median.b', 'std.b', 'n.b')]
@@ -364,12 +547,12 @@ speed.count <- data.frame(speed=seq(0,95,1))
 # set construction zones as T/F column
 traffic.nc <- traffic
 traffic.nc$construction <- ifelse(traffic.nc$startmm >= 8 & traffic.nc$startmm <= 16 |
-                                       traffic.nc$startmm >= 50 & traffic.nc$startmm <= 68 |
-                                       traffic.nc$startmm >= 141 & traffic.nc$startmm <= 165 |
-                                       traffic.nc$startmm >= 167 & traffic.nc$startmm <= 176 |
-                                       traffic.nc$startmm >= 197 & traffic.nc$startmm <= 207 |
-                                       traffic.nc$startmm >= 229 & traffic.nc$startmm <= 253,
-                                     yes=T, no=F)
+                                    traffic.nc$startmm >= 50 & traffic.nc$startmm <= 68 |
+                                    traffic.nc$startmm >= 141 & traffic.nc$startmm <= 165 |
+                                    traffic.nc$startmm >= 167 & traffic.nc$startmm <= 176 |
+                                    traffic.nc$startmm >= 197 & traffic.nc$startmm <= 207 |
+                                    traffic.nc$startmm >= 229 & traffic.nc$startmm <= 253,
+                                  yes=T, no=F)
 # remove construction
 traffic.nc <- traffic.nc %>% filter(construction==F)
 

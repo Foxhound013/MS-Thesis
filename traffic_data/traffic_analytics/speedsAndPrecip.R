@@ -2,7 +2,8 @@ library(data.table)
 library(dplyr)
 library(lattice); library(latticeExtra);
 library(hexbin)
-library(ggplot2); library(ggforce);
+library(hextri)
+library(ggplot2); library(ggforce); library(ggridges);
 library(sf)
 library(tmap)
 
@@ -44,20 +45,234 @@ levels(traffic$dayofweek)
 
 traffic$weekend <- ifelse(traffic$dayofweek == 'Saturday' | traffic$dayofweek == 'Sunday',
                           yes='Weekend', no='Weekday')
-traffic$weekend <- factor(traffic$weekend, levels=c('Weekday', 'Weekend'))
-levels(traffic$weekend)
+traffic$weekend <- as.factor(traffic$weekend)
 
-#traffic <- traffic %>% filter(weekend=='Weekday')
+# traffic$hours <- as.factor(traffic$hours)
+# levels(traffic$hours)
+
+traffic <- traffic %>% mutate(hour.range=ifelse(traffic$hours >= 4 & traffic$hours < 10,
+                                           yes='Morning', 
+                                           no=ifelse(traffic$hours >= 10 & traffic$hours < 16,
+                                                     yes='Morning Rush',
+                                                     no=ifelse(traffic$hours >= 15 & traffic$hours < 22,
+                                                               yes='Afternoon Rush',
+                                                               no='Evening')
+                                           )
+)
+)
+traffic$hour.range <- as.factor(traffic$hour.range)
+levels(traffic$hour.range) <- c('Morning', 'Morning Rush', 'Afternoon Rush', 'Evening')
+
+precip.ranges <- c(0,0.01,2.5,5,10,20,30,40,50,60,70,80,150)
+#precip.ranges <- c(0,0.01,2.5,5,10,150)
+#c(0,0.01,2.5,5,10,20,40,60,80,100,140) #old ranges
+traffic$rcat <- cut(traffic$precip,
+                    breaks=precip.ranges, right=F, include.lowest=T)
+
 
 # drop out known crashes
-# sub <- traffic %>% f
-# sub <- traffic %>% filter(day!= 8 & hours!=20 & (mins != 38 | mins != 40) & (startmm < 100 | startmm > 110))
+c1 <- do(traffic, data.frame(x = which((.$tstamp=='2018-06-08 20:38:00' |
+                                   .$tstamp == '2018-06-08 20:40:00' |
+                                   .$tstamp == '2018-06-08 20:42:00' |
+                                   .$tstamp == '2018-06-08 20:44:00' |
+                                   .$tstamp == '2018-06-08 20:46:00' |
+                                   .$tstamp == '2018-06-08 20:48:00' |
+                                   .$tstamp == '2018-06-08 20:50:00' |
+                                   .$tstamp == '2018-06-08 20:52:00' |
+                                   .$tstamp == '2018-06-08 20:54:00' |
+                                   .$tstamp == '2018-06-08 20:56:00' |
+                                   .$tstamp == '2018-06-08 20:58:00' |
+                                   .$tstamp == '2018-06-08 21:00:00' |
+                                   .$tstamp == '2018-06-08 21:02:00' |
+                                   .$tstamp == '2018-06-08 21:04:00' |
+                                   .$tstamp == '2018-06-08 21:06:00' |
+                                   .$tstamp == '2018-06-08 21:08:00') & 
+                                  (.$startmm>=100 & .$startmm<=110)
+                                 )
+                       )
+   ) %>% .$x
+sub <- traffic[c1,]
+
+c2 <- do(traffic, data.frame(x = which((.$tstamp=='2018-06-10 19:30:00' |
+                                          .$tstamp == '2018-06-10 19:32:00' |
+                                          .$tstamp == '2018-06-10 19:34:00' |
+                                          .$tstamp == '2018-06-10 19:36:00' |
+                                          .$tstamp == '2018-06-10 19:38:00' |
+                                          .$tstamp == '2018-06-10 19:40:00' |
+                                          .$tstamp == '2018-06-10 19:42:00' |
+                                          .$tstamp == '2018-06-10 19:44:00' |
+                                          .$tstamp == '2018-06-10 19:46:00' |
+                                          .$tstamp == '2018-06-10 19:48:00' |
+                                          .$tstamp == '2018-06-10 19:50:00' |
+                                          .$tstamp == '2018-06-10 19:52:00' |
+                                          .$tstamp == '2018-06-10 19:54:00' |
+                                          .$tstamp == '2018-06-10 19:56:00' |
+                                          .$tstamp == '2018-06-10 19:58:00' |
+                                          .$tstamp == '2018-06-10 20:00:00') & 
+                                         (.$startmm>=56 & .$startmm<=66)
+                                       )
+                             )
+         ) %>% .$x
+
+c3 <- do(traffic, data.frame(x = which((.$tstamp=='2018-06-12 06:00:00' |
+                                          .$tstamp == '2018-06-12 06:02:00' |
+                                          .$tstamp == '2018-06-12 06:04:00' |
+                                          .$tstamp == '2018-06-12 06:06:00' |
+                                          .$tstamp == '2018-06-12 06:08:00' |
+                                          .$tstamp == '2018-06-12 06:10:00' |
+                                          .$tstamp == '2018-06-12 06:12:00' |
+                                          .$tstamp == '2018-06-12 06:14:00' |
+                                          .$tstamp == '2018-06-12 06:16:00' |
+                                          .$tstamp == '2018-06-12 06:18:00' |
+                                          .$tstamp == '2018-06-12 06:20:00' |
+                                          .$tstamp == '2018-06-12 06:22:00' |
+                                          .$tstamp == '2018-06-12 06:24:00' |
+                                          .$tstamp == '2018-06-12 06:26:00' |
+                                          .$tstamp == '2018-06-12 06:28:00' |
+                                          .$tstamp == '2018-06-12 06:30:00') & 
+                                         (.$startmm>=62 & .$startmm<=72)
+                                       )
+                             )
+         ) %>% .$x
+
+c4 <- do(traffic, data.frame(x = which((.$tstamp=='2018-06-21 18:50:00' |
+                                          .$tstamp == '2018-06-21 18:52:00' |
+                                          .$tstamp == '2018-06-21 18:54:00' |
+                                          .$tstamp == '2018-06-21 18:56:00' |
+                                          .$tstamp == '2018-06-21 18:58:00' |
+                                          .$tstamp == '2018-06-21 19:00:00' |
+                                          .$tstamp == '2018-06-21 19:02:00' |
+                                          .$tstamp == '2018-06-21 19:04:00' |
+                                          .$tstamp == '2018-06-21 19:06:00' |
+                                          .$tstamp == '2018-06-21 19:08:00' |
+                                          .$tstamp == '2018-06-21 19:10:00' |
+                                          .$tstamp == '2018-06-21 19:12:00' |
+                                          .$tstamp == '2018-06-21 19:14:00' |
+                                          .$tstamp == '2018-06-21 19:16:00' |
+                                          .$tstamp == '2018-06-21 19:18:00' |
+                                          .$tstamp == '2018-06-21 19:20:00') & 
+                                         (.$startmm>=128 & .$startmm<=138)
+                                       )
+                             )
+         ) %>% .$x
+
+c5 <- do(traffic, data.frame(x = which((.$tstamp=='2018-06-21 17:30:00' |
+                                          .$tstamp == '2018-06-21 17:32:00' |
+                                          .$tstamp == '2018-06-21 17:34:00' |
+                                          .$tstamp == '2018-06-21 17:36:00' |
+                                          .$tstamp == '2018-06-21 17:38:00' |
+                                          .$tstamp == '2018-06-21 17:40:00' |
+                                          .$tstamp == '2018-06-21 17:42:00' |
+                                          .$tstamp == '2018-06-21 17:44:00' |
+                                          .$tstamp == '2018-06-21 17:46:00' |
+                                          .$tstamp == '2018-06-21 17:48:00' |
+                                          .$tstamp == '2018-06-21 17:50:00' |
+                                          .$tstamp == '2018-06-21 17:52:00' |
+                                          .$tstamp == '2018-06-21 17:54:00' |
+                                          .$tstamp == '2018-06-21 17:56:00' |
+                                          .$tstamp == '2018-06-21 17:58:00' |
+                                          .$tstamp == '2018-06-21 18:00:00') & 
+                                         (.$startmm>=172 & .$startmm<=182)
+                                       )
+                             )
+         ) %>% .$x
+
+c6 <- do(traffic, data.frame(x = which((.$tstamp=='2018-06-26 14:50:00' |
+                                          .$tstamp == '2018-06-26 14:52:00' |
+                                          .$tstamp == '2018-06-26 14:54:00' |
+                                          .$tstamp == '2018-06-26 14:56:00' |
+                                          .$tstamp == '2018-06-26 14:58:00' |
+                                          .$tstamp == '2018-06-26 15:00:00' |
+                                          .$tstamp == '2018-06-26 15:02:00' |
+                                          .$tstamp == '2018-06-26 15:04:00' |
+                                          .$tstamp == '2018-06-26 15:06:00' |
+                                          .$tstamp == '2018-06-26 15:08:00' |
+                                          .$tstamp == '2018-06-26 15:10:00' |
+                                          .$tstamp == '2018-06-26 15:12:00' |
+                                          .$tstamp == '2018-06-26 15:14:00' |
+                                          .$tstamp == '2018-06-26 15:16:00' |
+                                          .$tstamp == '2018-06-26 15:18:00' |
+                                          .$tstamp == '2018-06-26 15:20:00') & 
+                                         (.$startmm>=110 & .$startmm<=120)
+                                       )
+                             )
+         ) %>% .$x
+
+all_crashes <- c(c1,c2,c3,c4,c5,c6) %>% unique()
+traffic <- traffic[-all_crashes,]
+
+sum(traffic$precip > 0)/nrow(traffic) * 100
 
 
 sub <- traffic[sample(nrow(traffic),10000),]
 
-xyplot(startmm~speed | factor(dayofweek)*factor(hours)*factor(construction),
+xyplot(startmm~speed | factor(dayofweek)*factor(hour.range)*factor(construction),
        data=sub, groups=event, pch=16, alpha=0.3, layout=c(7,1,1))
+
+distro <- traffic
+distro$event <- ifelse(distro$event==T, yes='Precipitable', no='Non-Precipitable')
+
+pdf('./figures/bulkDensity.pdf', width=12, height=8)
+densityplot(~speed | factor(weekend)*factor(hour.range)*factor(construction)*factor(urban),
+            data=distro, groups=event, 
+            layout=c(8,2), xlab='Speed (mph)',
+            axis=axis.grid, alhpa=0.5,
+            from=0, to=90, plot.points=F, auto.key=T)
+dev.off()
+
+pdf('./figures/bulkECDF.pdf', width=12, height=8)
+ecdfplot(~speed | factor(weekend)*factor(hour.range)*factor(construction)*factor(urban),
+         data=distro, groups=event, 
+         layout=c(8,2), xlab='Speed (mph)',
+         axis=axis.grid, alhpa=0.5,
+         from=0, to=90, plot.points=F, auto.key=T)
+dev.off()
+
+pdf('./figures/bulkbwplot.pdf', width=12, height=8)
+bwplot(rcat~speed | factor(weekend)*factor(hour.range)*factor(construction)*factor(urban), 
+       data=traffic, axis=axis.grid, do.out=F, 
+       xlab='Speed (mph)', ylab='Precipitation Rate (mm/hr)',
+       cex=.2, layout=c(8,2))
+dev.off()
+
+test <- traffic %>% group_by(event, rcat, weekend, hour.range, construction, urban) %>% 
+  summarize(n=n(),
+            avgSpd=mean(speed),
+            medianSpd=median(speed))
+
+pdf('./figures/avgSpd_Bylocation.pdf', width=10, height=7)
+xyplot(rcat~avgSpd | factor(hour.range)*factor(construction)*factor(weekend), data=test,
+       groups=urban, auto.key=T, cex=0.5, alpha=0.5,
+       axis=axis.grid, ylab='Precipitation Intensity (mm/hr)',
+       xlab='Average Speed (mph)',
+       layout=c(4,2), xlim=c(40,80),
+       scales=list(x=list(at=seq(35,85,5))))
+dev.off()
+
+pdf('./figures/medianSpd_Bylocation.pdf', width=10, height=7)
+xyplot(rcat~medianSpd | factor(hour.range)*factor(construction)*factor(weekend), data=test,
+       groups=urban, auto.key=T, cex=0.5, alpha=0.5,
+       axis=axis.grid, ylab='Precipitation Intensity (mm/hr)',
+       xlab='Average Speed (mph)',
+       layout=c(4,2), xlim=c(40,80),
+       scales=list(x=list(at=seq(35,85,5))))
+dev.off()
+
+# recalculate the above figures as % reductions
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # pull out just the Indy region
@@ -95,125 +310,13 @@ levelplot(speed~tstamp*startmm | factor(dayofweek)*factor(construction), data=su
           col.regions=colorRampPalette(c("pink", "red", "orange","blue", "green"))
 )
 
-myPanel <- function(x,y) {
-  panel.grid(v = 2)
-  panel.xyplot(x, y, pch=16)
-  panel.loess(x, y, span = .01, col='red')
-}
 
 
-xyplot(startmm~speed | factor(hours), data=sub, groups=event, 
-       pch=16, layout=c(6,1,1),
-)
 
 
-speed.shingle <- equal.count(sub$speed, number=10, overlap=0)
-attributes(speed.shingle)
-levels(speed.shingle)
-
-spd.cut <- cut(traffic$speed, breaks=c(0,20,40,60,80,100))
-spd.cut.sub <- cut(sub$speed, breaks=c(0,20,40,60,80,100))
-
-pdf('./figures/positionVspeed_bySpeed.pdf')
 
 
-xyplot(startmm~speed | spd.cut.sub*factor(dayofweek)*factor(hours)*factor(construction),
-       data=sub, groups=event,
-       pch=16, alpha=0.2,
-       scales=list(x=list(relation='free')),
-       layout=c(5,1,1),
-       prepanel=function(x,y){
-         
-         #lims=c(min(x),max(x))
-         if (length(x) == 0) {
-           return()
-         } else {
-           if (x <= 20) {
-             xlim=c(0,20)
-             scales=list(x=list(at=seq(0,20,5)))
-           } else if (x > 20 & x <= 40) {
-             xlim=c(20,40)
-             scales=list(x=list(at=seq(20,40,5)))
-           } else if (x > 40 & x <= 60) {
-             xlim=c(40,60)
-             scales=list(x=list(at=seq(40,60,5)))
-           } else if (x > 60 & x <= 80) {
-             xlim=c(60,80)
-             scales=list(x=list(at=seq(60,80,5)))
-           } else if (x > 80) {
-             xlim=c(80,100)
-             scales=list(x=list(at=seq(80,100,5)))
-           }
-         }
-         
-         
-         #lims=c(ifelse(length(x)>0, yes=min(x), no=NA), ifelse(length(x)>0, yes=max(x), no=NA))
-         #list(xlim=lims)
-       }
-)
 
-
-dev.off()
-
-spd.cut.sub <- cut(sub$speed, breaks=c(0,10,20,30,40,50,
-                                       51,52,53,54,55,56,57,58,59,
-                                       60,61,62,63,64,65,66,67,68,69,
-                                       70,71,72,73,74,75,76,77,78,79,
-                                       80,100))
-pdf('./figures/positionVspeed_stripplot.pdf')
-stripplot(position~spd.cut.sub | factor(dayofweek)*factor(hours)*factor(construction), 
-          data=sub,
-          jitter.data=T, groups=event,
-          pch=16, alpha=0.2,
-          layout=c(1,1),
-          scales=list(x=list(rot=90)))
-dev.off()
-
-
-xyplot(speed~startmm | factor(dayofweek)*factor(hours)*factor(construction), 
-       data=sub,
-       groups=event,
-       layout=c(1,2,1))
-
-test <- traffic %>% group_by(startmm, dayofweek, hours, construction, event) %>% 
-  summarize(avgSpd=mean(speed, na.rm=T))
-
-xyplot(avgSpd~startmm | factor(dayofweek)*factor(hours)*factor(construction),
-       data=test, groups=event,
-       pch=16, alpha=0.4,
-       layout=c(7,1)
-)
-
-levelplot(avgSpd~factor(event)*startmm | factor(dayofweek)*factor(hours)*factor(construction), 
-          data=test, layout=c(7,1,1),
-          scales=list(x=list(rot=90)),
-          col.regions=colorRampPalette(c("pink", "red", "orange", "green")),
-          ylim=c(0,270)
-)
-
-
-pdf('./figures/levplot_test.pdf')
-levelplot(avgSpd~factor(event)*startmm | factor(dayofweek)*factor(hours)*factor(construction), 
-          data=test, layout=c(7,2,1),
-          scales=list(x=list(rot=90)),
-          col.regions=colorRampPalette(c("pink", "red", "orange", "green")),
-          ylim=c(0,270)
-)
-dev.off()
-
-pdf('./figures/loessPlot_Events.pdf')
-xyplot(speed~startmm | factor(dayofweek)*factor(hours)*factor(construction),
-       data=traffic, layout=c(7,2,1), groups=event, auto.key=T,
-       pch=16, alpha=0.5,
-       type=c('smooth'), span=2/3, degree=1
-)
-dev.off()
-
-pdf('./figures/positionVspeed_bySpeed.pdf')
-xyplot(startmm~speed | factor(dayofweek)*factor(hours)*factor(construction),
-       data=traffic, layout=c(7,1,1), groups=event, auto.key=T,
-       pch=16, alpha=0.2)
-dev.off()
 
 
 
@@ -267,109 +370,65 @@ dev.off()
 # dev.off()
 
 
-# only defining the event this way here for density plots, redefined later.
-
-pdf('./figures/precipVspeed.pdf')
-xyplot(precip ~ speed | factor(position), data=traffic, pch=16, alpha=0.2,
-       group=event, auto.key=T, layout=c(3,3))
-dev.off()
-
-pdf('./figures/positionVspeed.pdf', width=8, height=10)
-xyplot(position ~ speed, data=traffic, pch=16, alpha=0.2,
-       group=event, auto.key=T)
-dev.off()
-
-spd.cut <- cut(traffic$speed,breaks=c(0,25,50,75,100),overlap=0)
-
-pdf('./figures/precipVspeed_hour_density.pdf', width=15)
-densityplot(~speed | factor(hours)*spd.cut, data=traffic, plot.points=F, 
-            groups=event, auto.key=T, layout=c(12,2),
-            xlim=c(0,90))
-dev.off()
 
 
 
-spd.cut <- cut(traffic$speed,breaks=seq(0,95,5))
-pdf('./figures/precipVspeed_density.pdf', width=15)
-densityplot(~speed | spd.cut, data=traffic, plot.points=F,
-            groups=event, auto.key=T, layout=c(5,4))
-dev.off()
-
-pdf('./figures/bwplot_speedByHour.pdf', width=12)
-bwplot(event~speed | factor(hours), data=traffic, auto.key=T,
-       do.out=F, layout=c(12,2))
-dev.off()
 
 
-tmp.spd <- traffic %>% filter(speed <= 60)
-pdf('./figures/precipVspeed_lowspeed_hour_density.pdf', width=30)
-densityplot(~speed | factor(rev(hours)), data=traffic, plot.points=F, groups=event,
-            layout=c(24,1,1))
-dev.off()
 
 
 
 # produce levels indicating precip levels for bw plots
 tmp <- traffic
-#tmp$precip <- as.integer(tmp$precip)
-# tmp$rcat <- cut(tmp$precip, 10)
-precip.ranges <- c(0,0.01,2.5,5,10,20,30,40,50,60,70,80,150)
-tmp$rcat <- cut(tmp$precip, breaks=precip.ranges, right=F, include.lowest=T)
-# tmp$rcat <- cut(tmp$precip, breaks=c(-1,0,0.01,10,20,30,40,50,60,70,80,90,100,140), right=F, include.lowest=T)
-tmp$section <- cut(tmp$position, breaks=c(0,100,200,300,400,500), right=F, include.lowest=T)
+
 
 #tmp$construction <- as.factor(tmp$construction)
 #levels(tmp$construction) <- c('Non-Construction','Construction')
 
-pdf('./figures/bwplot_speedByCat.pdf')
-bp <- bwplot(rcat~speed | factor(section)*factor(construction), data=tmp, 
-             ylab='Precip. Range (mm/hr)', xlab='Speed (mph)', 
-             do.out=F, layout=c(1,5,2), cex=.3, scales=list(cex=.5),
-             par.strip.text=list(cex=.7))
-dev.off()
+
 
 sub <- tmp[sample(nrow(tmp),10000),]
 
-# consider factoring by daylight as well
-pdf('./figures/bwplot_speedByCat&urban&others.pdf', width=10, height=7)
-bwplot(rcat~speed | factor(urban)*factor(construction)*factor(hours)*factor(dayofweek), 
-       data=tmp, layout=c(1,4),
-       ylab='Precipitation Range (mm/hr)', xlab='Speed (mph)',
-       do.out=F, cex=.3, axis=axis.grid, xlim=c(0,90),
-       scales=list(cex=.5, x=list(at=seq(0,90,5))),
-       par.strip.text=list(cex=.7), coef=1.5)
-dev.off()
 
-bwplot(rcat~speed | factor(urban)*factor(construction)*factor(dayofweek)*factor(hours), 
-       data=tmp, layout=c(1,4),
-       ylab='Precipitation Range (mm/hr)', xlab='Speed (mph)',
-       do.out=F, cex=.3, axis=axis.grid, xlim=c(0,90),
-       scales=list(cex=.5, x=list(at=seq(0,90,5))),
-       par.strip.text=list(cex=.7), coef=1.5)
 
 # levelplot(speed~position*hours | factor(dayofweek), data=tmp)
 
-traffic.summary.r <- tmp %>% group_by(urban,construction,rcat) %>% 
+traffic.summary.r <- tmp %>% group_by(hour.range,weekend,urban,construction,rcat) %>% 
   summarise(min.r=min(speed), max.r=max(speed), median.r=median(speed), std.r=sd(speed), n.r=n())
 
-traffic.baseline <- tmp %>% filter(precip == 0) %>% group_by(urban,construction,rcat) %>% 
+traffic.baseline <- tmp %>% filter(precip == 0) %>% 
+  group_by(hour.range,weekend,urban,construction,rcat) %>% 
   summarise(min.b=min(speed), max.b=max(speed), median.b=median(speed), std.b=sd(speed), n.b=n())
 
-traffic.summary <- left_join(traffic.summary.r, traffic.baseline, )
+traffic.summary <- left_join(traffic.summary.r, traffic.baseline)
+traffic.summary <- zoo::na.locf(traffic.summary, fromLast=T)
+traffic.summary[seq(405,415),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[404,c('min.b','max.b','median.b', 'std.b', 'n.b')]
+
 # NOTE: THESE FILL IN LINES WILL HAVE TO CHANGE IF ANY NEW STATS ARE ADDED OR REGIONS.
-traffic.summary[seq(2,12),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[1,c('min.b','max.b','median.b', 'std.b', 'n.b')]
-traffic.summary[seq(14,21),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[13,c('min.b','max.b','median.b', 'std.b', 'n.b')]
-traffic.summary[seq(23,30),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[22,c('min.b','max.b','median.b', 'std.b', 'n.b')]
-traffic.summary[seq(32,39),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[31,c('min.b','max.b','median.b', 'std.b', 'n.b')]
-traffic.summary[seq(41,51),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[40,c('min.b','max.b','median.b', 'std.b', 'n.b')]
-traffic.summary[seq(53,63),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[52,c('min.b','max.b','median.b', 'std.b', 'n.b')]
+# below was a highly manual method for filling NAs
+# traffic.summary[seq(2,12),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[1,c('min.b','max.b','median.b', 'std.b', 'n.b')]
 
 
 percent.reduction <- 100 - (traffic.summary$median.r / traffic.summary$median.b)*100
-traffic.summary$percent.reduction <- percent.reduction %>% round(2)
+traffic.summary$median.percent.reduction <- percent.reduction %>% round(2)
+
+
+
+xyplot(rcat~median.percent.reduction | factor(weekend)*factor(hour.range)*factor(construction),
+       data=traffic.summary, groups=urban, pch=16, alpha=0.8,
+       axis=axis.grid, auto.key=T,
+       layout=c(4,2))
+
+testit <- traffic.summary %>% filter(n.r > 100)
+xyplot(rcat~median.percent.reduction | factor(weekend)*factor(hour.range)*factor(construction),
+       data=testit, groups=urban, pch=16, alpha=0.5,
+       axis=axis.grid, auto.key=T,
+       layout=c(4,2))
+
+
 
 bwplot(percent.reduction~construction, data=traffic.summary,groups=construction)
-levelplot(percent.reduction~construction*urban, data=traffic.summary)
+
 
 # graphical method for presenting the tabular percent reduction data.
 dotplot(rcat~percent.reduction | factor(construction), data=traffic.summary, groups=urban, auto.key=T,

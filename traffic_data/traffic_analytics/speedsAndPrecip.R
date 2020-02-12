@@ -54,7 +54,7 @@ traffic <- traffic %>% mutate(hour.range=ifelse(traffic$hours >= 4 & traffic$hou
                                            yes='Morning', 
                                            no=ifelse(traffic$hours >= 10 & traffic$hours < 16,
                                                      yes='Morning Rush',
-                                                     no=ifelse(traffic$hours >= 15 & traffic$hours < 22,
+                                                     no=ifelse(traffic$hours >= 16 & traffic$hours < 22,
                                                                yes='Afternoon Rush',
                                                                no='Evening')
                                            )

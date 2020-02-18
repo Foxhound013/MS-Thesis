@@ -38,14 +38,21 @@ traffic <- traffic %>% mutate(urban=ifelse(position >= 2 & position <= 15,
                                            )
 )
 )
-traffic$construction <- as.factor(traffic$construction)
-levels(traffic$construction) <- c('Non-Construction','Construction')
-traffic$dayofweek <- factor(traffic$dayofweek, levels=c('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'))
-levels(traffic$dayofweek)
+
+traffic$construction <- ifelse(traffic$construction, yes='Construction', no='Non-Construction')
+traffic$construction <- factor(traffic$construction,
+                               levels=c('Non-Construction','Construction'),
+                               ordered=T) 
+
+traffic$dayofweek <- factor(traffic$dayofweek, 
+                            levels=c('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'),
+                            ordered=T)
 
 traffic$weekend <- ifelse(traffic$dayofweek == 'Saturday' | traffic$dayofweek == 'Sunday',
                           yes='Weekend', no='Weekday')
-traffic$weekend <- as.factor(traffic$weekend)
+traffic$weekend <- factor(traffic$weekend,
+                          levels=c('Weekday','Weekend'),
+                          ordered=T)
 
 # traffic$hours <- as.factor(traffic$hours)
 # levels(traffic$hours)
@@ -60,8 +67,9 @@ traffic <- traffic %>% mutate(hour.range=ifelse(traffic$hours >= 4 & traffic$hou
                                            )
 )
 )
-traffic$hour.range <- as.factor(traffic$hour.range)
-levels(traffic$hour.range) <- c('Morning', 'Morning Rush', 'Afternoon Rush', 'Evening')
+traffic$hour.range <- factor(traffic$hour.range,
+                             levels=c('Morning', 'Morning Rush', 'Afternoon Rush', 'Evening'),
+                             ordered=T)
 
 precip.ranges <- c(0,0.01,2.5,5,10,20,30,40,50,60,70,80,150)
 #precip.ranges <- c(0,0.01,2.5,5,10,150)
@@ -211,9 +219,12 @@ xyplot(startmm~speed | factor(dayofweek)*factor(hour.range)*factor(construction)
 
 distro <- traffic
 distro$event <- ifelse(distro$event==T, yes='Precipitable', no='Non-Precipitable')
+distro$event <- factor(distro$event,
+                       levels=c('Non-Precipitable', 'Precipitable'),
+                       ordered=T)
 
 pdf('./figures/bulkDensity.pdf', width=12, height=8)
-densityplot(~speed | factor(weekend)*factor(hour.range)*factor(construction)*factor(urban),
+densityplot(~speed | weekend*hour.range*construction*urban,
             data=distro, groups=event, 
             layout=c(8,2), xlab='Speed (mph)',
             axis=axis.grid, alhpa=0.5,
@@ -221,7 +232,7 @@ densityplot(~speed | factor(weekend)*factor(hour.range)*factor(construction)*fac
 dev.off()
 
 pdf('./figures/bulkECDF.pdf', width=12, height=8)
-ecdfplot(~speed | factor(weekend)*factor(hour.range)*factor(construction)*factor(urban),
+ecdfplot(~speed | weekend*hour.range*construction*urban,
          data=distro, groups=event, 
          layout=c(8,2), xlab='Speed (mph)',
          axis=axis.grid, alhpa=0.5,
@@ -229,7 +240,7 @@ ecdfplot(~speed | factor(weekend)*factor(hour.range)*factor(construction)*factor
 dev.off()
 
 pdf('./figures/bulkbwplot.pdf', width=12, height=8)
-bwplot(rcat~speed | factor(weekend)*factor(hour.range)*factor(construction)*factor(urban), 
+bwplot(rcat~speed | weekend*hour.range*construction*urban, 
        data=traffic, axis=axis.grid, do.out=F, 
        xlab='Speed (mph)', ylab='Precipitation Rate (mm/hr)',
        cex=.2, layout=c(8,2))
@@ -253,7 +264,7 @@ pdf('./figures/medianSpd_Bylocation.pdf', width=10, height=7)
 xyplot(rcat~medianSpd | factor(hour.range)*factor(construction)*factor(weekend), data=test,
        groups=urban, auto.key=T, cex=0.5, alpha=0.5,
        axis=axis.grid, ylab='Precipitation Intensity (mm/hr)',
-       xlab='Average Speed (mph)',
+       xlab='Median Speed (mph)',
        layout=c(4,2), xlim=c(40,80),
        scales=list(x=list(at=seq(35,85,5))))
 dev.off()
@@ -401,8 +412,7 @@ traffic.baseline <- tmp %>% filter(precip == 0) %>%
   summarise(min.b=min(speed), max.b=max(speed), median.b=median(speed), std.b=sd(speed), n.b=n())
 
 traffic.summary <- left_join(traffic.summary.r, traffic.baseline)
-traffic.summary <- zoo::na.locf(traffic.summary, fromLast=T)
-traffic.summary[seq(405,415),c('min.b','max.b','median.b', 'std.b', 'n.b')] <- traffic.summary[404,c('min.b','max.b','median.b', 'std.b', 'n.b')]
+traffic.summary <- traffic.summary %>% tidyr::fill(median.b)
 
 # NOTE: THESE FILL IN LINES WILL HAVE TO CHANGE IF ANY NEW STATS ARE ADDED OR REGIONS.
 # below was a highly manual method for filling NAs
@@ -413,17 +423,24 @@ percent.reduction <- 100 - (traffic.summary$median.r / traffic.summary$median.b)
 traffic.summary$median.percent.reduction <- percent.reduction %>% round(2)
 
 
-
+pdf('./figures/median_percentReduction.pdf', width=10, height=7)
 xyplot(rcat~median.percent.reduction | factor(weekend)*factor(hour.range)*factor(construction),
-       data=traffic.summary, groups=urban, pch=16, alpha=0.8,
-       axis=axis.grid, auto.key=T,
-       layout=c(4,2))
+       data=traffic.summary, groups=urban, alpha=0.8, cex=0.5,
+       axis=axis.grid, auto.key=T, ylab='Precipitation Intensity (mm/hr)',
+       xlab='Median Speed (mph)', main='Median Speed Percent Reduction',
+       layout=c(4,2), xlim=c(-10,20),
+       scales=list(x=list(at=seq(-10,20,2), rot=90)))
+dev.off()
 
 testit <- traffic.summary %>% filter(n.r > 100)
+pdf('./figures/median_percentReduction_samplesG100.pdf', width=10, height=7)
 xyplot(rcat~median.percent.reduction | factor(weekend)*factor(hour.range)*factor(construction),
-       data=testit, groups=urban, pch=16, alpha=0.5,
-       axis=axis.grid, auto.key=T,
-       layout=c(4,2))
+       data=testit, groups=urban, alpha=0.8, cex=0.5,
+       axis=axis.grid, auto.key=T,ylab='Precipitation Intensity (mm/hr)',
+       xlab='Median Speed (mph)', main='Median Speed Percent Reduction (Sample Sizes > 100)',
+       layout=c(4,2), xlim=c(-10,20),
+       scales=list(x=list(at=seq(-10,20,2), rot=90)))
+dev.off()
 
 
 

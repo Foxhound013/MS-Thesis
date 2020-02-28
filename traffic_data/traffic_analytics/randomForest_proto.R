@@ -36,7 +36,7 @@ traffic <- traffic %>% mutate(region=ifelse(position >= 2 & position <= 15,
 )
 )
 
-spd.ranges <- c(0,50,60,100)
+spd.ranges <- c(0,40,50,100)
 traffic$rspd <- cut(traffic$speed, breaks=spd.ranges, right=F, include.lowest=T)
 
 precip.ranges <- c(0,0.01,2.5,5,10,20,30,40,50,60,70,80,150)
@@ -56,7 +56,7 @@ traffic30 <- traffic %>% filter(score==30)
 
 
 sub <- traffic %>% filter(score == 30) %>% 
-  select(speed, precip, region, bearing, construction, 
+  select(rspd, precip, region, bearing, construction, 
          hours, daylight, dayofweek)
 # removed region in favor of startmm for this test
 
@@ -164,18 +164,21 @@ str(sub)
 # https://www.youtube.com/watch?v=woVTNwRrFHE
 
 
-dummy <- dummyVars(speed~., data=trainSet)
-train_mat <- predict(dummy, newdata=trainSet)
+dummy <- dummyVars(~., data=trainSet %>% select(-rspd))
+train_mat <- predict(dummy, newdata=trainSet %>% select(-rspd))
 dim(train_mat)
 
-dummy <- dummyVars(speed~., data=validSet)
-test_mat <- predict(dummy, newdata=validSet)
+dummy <- dummyVars(~., data=validSet %>% select(-rspd))
+test_mat <- predict(dummy, newdata=validSet %>% select(-rspd))
 
-x_train <- xgb.DMatrix(train_mat)
-y_train <- trainSet$speed
+y_train <- trainSet$rspd
+y_train <- as.integer(y_train) - 1
+x_train <- xgb.DMatrix(train_mat, label=y_train)
 
-x_test <- xgb.DMatrix(test_mat)
-y_test <- validSet$speed
+y_test <- validSet$rspd
+y_test <- as.integer(y_test) - 1
+x_test <- xgb.DMatrix(test_mat, label=y_test)
+
 
 # may need to register a parallel backend to get the parallel computation to work properly
 xgb_trcontrol=trainControl(allowParallel=T)
@@ -194,10 +197,20 @@ parametersGrid <- expand.grid(eta=0.3,
                               nrounds=500,
                               gamma=1,
                               min_child_weight=2,
-                              subsample=1)
+                              subsample=1,
+                              eval_metric='mlogloss',
+                              num_class=3)
 
 xgb_model <- train(x_train, y_train, trControl=xgb_trcontrol, method='xgbTree',
                    tuneGrid=parametersGrid)
+
+xgb_model <- xgb.train(params=parametersGrid, 
+                       data=x_train,
+                       nrounds=100,
+                       print_every_n = 50)
+
+xgb_model <- xgboost(data=x_train, label=y_train, max.depth=2, eta=0.3, nrounds=2,
+                     objective='binary:logistic')
 
 # xgb_model <- xgboost(data=x_train, label=as.matrix(y_train), max.depth=2, eta=1, nthread=2, nrounds=2,
 #                      objective='binary:logistic')
@@ -244,6 +257,11 @@ barchart(variable~value, data=summedImportance,
 plot(xgb_model)
 
 predicted <- predict(xgb_model, x_test)
+predicted <- as.factor(predicted)
+y_test <- as.factor(y_test)
+cm <- confusionMatrix(y_test, predicted)
+print(cm)
+
 res <- y_test - predicted
 root.mse = RMSE(predicted, y_test)
 mean.abs.error <- MAE(predicted, y_test)

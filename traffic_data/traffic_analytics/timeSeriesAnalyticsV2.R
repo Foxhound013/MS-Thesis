@@ -27,7 +27,7 @@ tmap_mode('view')
 tm_shape(road.map) + tm_dots()
 
 
-generate_stats <- function(segment, segData) {
+generate_stats <- function(segment, segData, plot_it=F) {
   # window building 
   eventRow <- which(segData$event == T)
   
@@ -49,10 +49,12 @@ generate_stats <- function(segment, segData) {
     eventWindow <- segData[seq(i-15,i+15),]
     precipPresent <- ifelse(sum(eventWindow[seq(1,eventCenter),'precip']>0) > 0, yes=T, no=F)
     
-    # png(paste0('./figures/automatedEventFigs/',segment,'_',i,'.png'))
-    # p <- xyplot(speed+avgSpd+precip~tstamp,data=eventWindow, type=c('p','l','g'), auto.key=T)
-    # print(p)
-    # dev.off()
+    if (plot_it) {
+      png(paste0('./figures/automatedEventFigs/',segment,'_',i,'.png'))
+      p <- xyplot(speed+avgSpd+precip~tstamp,data=eventWindow, type=c('p','l','g'), auto.key=T)
+      print(p)
+      dev.off()
+    }
     
     # generate statistics
     # Delta Speed (ds)
@@ -170,9 +172,11 @@ for (i in uniqueSegs[[1]]) {
 
 # percentage of negative ds events
 length(segment.stats[segment.stats$ds < 0, 'ds'])/length(segment.stats$ds) * 100
+# 1.7% marked as false events
+
 # percentage of score 20
 length(segment.stats[segment.stats$score == 20, 'score'])/length(segment.stats$score) * 100
-
+# 10% of events were score of 20
 
 # filter events
 segStats.tmp <- segment.stats %>% filter(ds >= 0) # removes negative DS (or false event trips)
@@ -314,9 +318,11 @@ rm.crashes <- function(segstats) {
 
 segStats.tmp <- rm.crashes(segStats.tmp)
 
-sum(segStats.tmp$precipPresent)/nrow(segStats.tmp) * 100
+sum(segStats.tmp$precipPresent)/nrow(segStats.tmp) * 100 
+# 17.6 % of events are precipitable
 
 sum(segStats.tmp$construction)/nrow(segStats.tmp) * 100
+# 33% are in the presence of construction
 
 
 # define precipitation prior to the event into categories for boxplot purposes
@@ -361,31 +367,40 @@ segStats.tmp$construction <- factor(segStats.tmp$construction,
 
 segStats.tmp$precipPresent <- ifelse(segStats.tmp$precipPresent, yes='Precipitable', no='Non-Precipitable')
 segStats.tmp$precipPresent <- factor(segStats.tmp$precipPresent,
-                                     levels=c('Non-Precipitable', 'Precipitable'),
+                                     levels=c('Precipitable', 'Non-Precipitable'),
                                      ordered=T)
 
 
 
 
 
-
+# Delta Speed Plots
 
 # event sparsity is too much for the plot to be super useful
-pdf('./figures/eventsVds.pdf', width=10, height=7)
-bwplot(rcat~ds | factor(weekend)*factor(hour.range)*factor(construction), 
-       data=segStats.tmp, layout=c(6,2), cex=.5,
-       axis=axis.grid, do.out=F, xlab='Delta Speed (mph)',
+png('./figures/event_bwplots/eventsVds%02d.png', units='in', res=220, width=8.5, height=6)
+bwplot(rcat~ds | weekend*hour.range*construction, 
+       data=segStats.tmp, axis=axis.grid, do.out=T, as.table=T, 
+       layout=c(6,2), cex=.3,
+       par.settings = list(plot.symbol = list(pch = 16, cex=0.3, alpha=0.5)),
+       par.strip.text=list(cex=.68),
+       xlab='Delta Speed (mph)',
        ylab='Precipitation Rate (mm/hr)',
-       scales=list(x=list(at=seq(0,80,10), cex=.8, rot=90))
+       scales=list(x=list(at=seq(0,80,10), cex=.7, rot=90),
+                   y=list(cex=0.7))
 )
 dev.off()
 
 # likely a good plot from process diagnostic standpoint.
-pdf('./figures/ecdf_ds.pdf', width=10, height=7)
+png('./figures/event_ecdf/ecdf_ds%02d.png', units='in', res=220, width=8.5, height=6)
 ecdfplot(~ds | weekend*hour.range*construction, data=segStats.tmp,
-         groups=precipPresent, xlab='Delta Speed (mph)',
-         axis=axis.grid,
-         layout=c(6,2))
+         groups=precipPresent, as.table=T,
+         par.strip.text=list(cex=.68),
+         axis=axis.grid, from=0, to=80,
+         xlab='Delta Speed (mph)',
+         layout=c(6,2), auto.key=list(cex=0.73),
+         scale=list(x=list(at=seq(0,80,10), cex=0.7, rot=90),
+                    y=list(cex=0.7))
+         )
 dev.off()
 
 
@@ -405,102 +420,61 @@ densityplot(~ds | weekend*hour.range*construction, data=segStats.tmp, auto.key=T
 dev.off()
 
 
+# Time to Recovery Plots
 
-# GOOD PLOT
-test <- segStats.tmp %>% group_by(weekend,hours,precipPresent,rcat,construction) %>% 
-  summarise(ds=median(ds))
+# what is the percentage of non-recoveries?
+sum(is.na(segStats.tmp$t2r))/nrow(segStats.tmp) * 100
+# 36.2% of events detected are non-recovery
 
-pdf('./figures/levPlot.pdf', width=10, height=7)
-levelplot(ds~hours*rcat | weekend*precipPresent*construction, 
-          data=test, col.regions=rev(heat.colors(30)), alpha=0.2,
-          xlab='Hour of Day (UTC)', ylab='Precipitation Rate (mm/hr)',
-          main='Median DS by Hour of Day',
-          scales=list(x=list(rot=90)))
-dev.off()
-
-
-
-
-# This plot doesn't seem to add anything to knowledge of the situation other than that populated
-# areas seem to display the most amount of events.
-# pdf('./figures/segmentDS.pdf')
-# xyplot(startmm~ds | weekend*hour.range*construction, data=segStats.tmp, groups=precipPresent,
-#        layout=c(7,2), axis=axis.grid, pch=16, alpha=0.3, cex=0.5)
-# dev.off()
-
-densityplot(~ds | hour.range, data=segStats.tmp, groups=precipPresent,
-            plot.points=F, auto.key=T)
-
-
-
-# need to encode the sample size
-bwplot(rcat~ds | weekend*construction*hours, data=segStats.tmp, do.out=F,
-       xlab='Delta Speed (mph)', ylab='Precipitation Range (mm/hr)', 
-       axis=axis.grid, layout=c(1,2), xlim=c(-20,60), 
-       scales=list(x=list(at=seq(-20,60,10)))
-)
-
-test <- segStats.tmp %>% group_by(weekend,hours,precipPresent,rcat,construction) %>% 
-  summarise(t2r=median(t2r))
-
-pdf('./figures/levPlot_t2r.pdf', width=10, height=7)
-levelplot(t2r~hours*rcat | weekend*precipPresent*construction, 
-          data=test, col.regions=rev(heat.colors(30)), alpha=0.2,
-          xlab='Hour of Day (UTC)', ylab='Precipitation Rate (mm/hr)',
-          main='Median T2R by Hour of Day',
-          scales=list(x=list(rot=90)))
-dev.off()
-
-pdf('./figures/bwplot_t2r.pdf', width=10, height=7)
+png('./figures/event_bwplots/bwplot_t2r%02d.png', units='in', res=220, width=8.5, height=6)
 bwplot(rcat~t2r | factor(weekend)*factor(hour.range)*factor(construction), 
-       data=segStats.tmp, layout=c(6,2), cex=.5,
-       axis=axis.grid, do.out=F, xlab='Time to Recovery (minutes)',
+       data=segStats.tmp, axis=axis.grid, do.out=T, as.table=T, 
+       layout=c(6,2), cex=0.3,
+       par.settings = list(plot.symbol = list(pch = 16, cex=0.3, alpha=0.5)),
+       par.strip.text=list(cex=.68),
+       xlab='Time to Recovery (minutes)',
        ylab='Precipitation Rate (mm/hr)',
-       scales=list(x=list(at=seq(0,30,5), cex=.8, rot=90))
+       scales=list(x=list(at=seq(0,30,5), cex=.7, rot=90),
+                   y=list(cex=0.7))
 )
 dev.off()
+
+
 
 # likely a good plot from process diagnostic standpoint.
-pdf('./figures/ecdf_t2r.pdf', width=10, height=7)
+png('./figures/event_ecdf/ecdf_t2r%02d.png', units='in', res=220, width=8.5, height=6)
 ecdfplot(~t2r | weekend*hour.range*construction, data=segStats.tmp,
-         groups=precipPresent, xlab='Time to Recovery (minutes)',
-         axis=axis.grid,
-         layout=c(6,2))
+         groups=precipPresent, as.table=T,
+         par.strip.text=list(cex=.68),
+         auto.key=list(cex=0.73),
+         xlab='Time to Recovery (minutes)',
+         axis=axis.grid, from=0, to=30,
+         layout=c(6,2),
+         scale=list(x=list(cex=0.7),
+                    y=list(cex=0.7))
+         )
 dev.off()
 
 
-test <- segStats.tmp %>% group_by(weekend,hours,precipPresent,rcat,construction) %>% 
-  summarise(t2i=median(t2i))
+# Time to Impact plots
 
-pdf('./figures/levPlot_t2i.pdf', width=10, height=7)
-levelplot(t2i~hours*rcat | weekend*precipPresent*construction, 
-          data=test, col.regions=rev(heat.colors(30)), alpha=0.2,
-          xlab='Hour of Day (UTC)', ylab='Precipitation Rate (mm/hr)',
-          main='Median T2I by Hour of Day',
-          scales=list(x=list(rot=90)))
-dev.off()
 
-pdf('./figures/bwplot_t2i.pdf', width=10, height=7)
-bwplot(rcat~t2i | factor(weekend)*factor(hour.range)*factor(construction), 
-       data=segStats.tmp, layout=c(6,2), cex=.5,
-       axis=axis.grid, do.out=F, xlab='Time to Impact (minutes)',
+png('./figures/event_bwplots/bwplot_t2i.png', units='in', res=220, width=8.5, height=6)
+bwplot(rcat~t2i | weekend*hour.range*construction, 
+       data=segStats.tmp, axis=axis.grid, do.out=T, as.table=T, 
+       layout=c(6,2), cex=0.3,
+       par.settings = list(plot.symbol = list(pch = 16, cex=0.3, alpha=0.5)),
+       par.strip.text=list(cex=.68),
+       xlab='Time to Impact (minutes)',
        ylab='Precipitation Rate (mm/hr)',
-       scales=list(x=list(at=seq(0,30,5), cex=.8, rot=90))
+       scales=list(x=list(at=seq(0,30,5), cex=.7, rot=90),
+                   y=list(cex=0.7))
 )
 dev.off()
 
 
-# for some reason it won't plot, something about need 2 points to select bandwidth
-# pdf('./figures/ecdf_t2i.pdf', width=10, height=7)
-# ecdfplot(~t2i | weekend*hour.range*construction, data=segStats.tmp,
-#          groups=precipPresent, xlab='Time to Impact (minutes)',
-#          axis=axis.grid,
-#          layout=c(6,2))
-# dev.off()
 
 
-# percentage of non-recovery events
-sum(is.na(segStats.tmp$t2r))/length(segStats.tmp$t2r) * 100
 
 
 
@@ -510,6 +484,7 @@ segStats.tmp2 <- segStats.tmp %>% filter(t2i<30)
 
 # percentage of 30 minute impact events
 length(segStats.tmp2$t2i)/length(segStats.tmp$t2i) * 100
+# only 6.7% of the events are less than a 30 minute t2i
 
 
 
@@ -519,9 +494,44 @@ length(segStats.tmp2$t2i)/length(segStats.tmp$t2i) * 100
 
 
 # tallying up the sample sizes
-segStats.summary <- segStats.tmp %>% group_by(rcat,construction) %>% tally()
+segStats.summary <- segStats.tmp %>% group_by(rcat,weekend,hour.range,construction) %>% tally()
 max(segStats.tmp$ds)
 min(segStats.tmp$ds)
+
+png('./figures/sampleSizes/event_samples_all.png', units='in', res=220, width=8.5, height=6)
+dotplot(rcat~n | weekend*hour.range*construction, 
+        data=segStats.summary,
+        as.table=T,
+        axis=axis.grid,
+        pch=16, cex=0.5,
+        par.strip.text=list(cex=.68),
+        main='Sample Sizes for Precipitation Regimes and Conditions',
+        xlab='Precipitation Rate (mm/hr)',
+        ylab='Sample Size',
+        layout=c(6,2),
+        scales=list(x=list(cex=.7),
+                    y=list(cex=0.7))
+        )
+dev.off()
+
+segStats.summary.fewer <- segStats.summary %>% filter(n <= 100)
+
+png('./figures/sampleSizes/event_samples_lessorequal100.png', units='in', res=220, width=8.5, height=6)
+dotplot(rcat~n | weekend*hour.range*construction, 
+        data=segStats.summary.fewer,
+        as.table=T,
+        axis=axis.grid,
+        pch=16, cex=0.5,
+        par.strip.text=list(cex=.68),
+        main='Sample Sizes for Precipitation Regimes and Conditions (<= 100)',
+        xlab='Precipitation Rate (mm/hr)',
+        ylab='Sample Size',
+        layout=c(6,2),
+        xlim=c(0,100),
+        scales=list(x=list(at=seq(0,100,20),cex=.7),
+                    y=list(cex=0.7))
+)
+dev.off()
 
 
 
@@ -544,162 +554,4 @@ mean(segStats.tmp$t2r, na.rm=T)
 
 
 
-
-# locates event windows and removes the corresponding data in order to produce information
-
-# full set
-tmp <- traffic %>% mutate(avgSpd=frollmean(x=speed,n=2,fill=NA))
-# event detection
-tmp <- tmp %>% mutate(event=ifelse( (100-(speed/avgSpd)*100) >= 10, yes=T, no=F),
-                      pct_drop=100-(speed/avgSpd)*100)
-
-#REPLACE THE TMP VAR WITH SEGDATA
-eventRows <-  which(tmp$event == T)
-removalRows <- vector()
-
-for (i in eventRows) {
-  removalRows <-  append(removalRows, seq(i-15,i+15))
-}
-removalRows <- removalRows %>% unique()
-
-tmp <- tmp[-c(removalRows),] # drop out all event associated rows
-
-segBaseline <- tmp %>% filter(score == 30)
-
-rm.crashes.base <- function(segstats) {
-  # drop out known crashes
-  c1 <- do(segstats, data.frame(x = which((.$tstamp=='2018-06-08 20:38:00' |
-                                                .$tstamp == '2018-06-08 20:40:00' |
-                                                .$tstamp == '2018-06-08 20:42:00' |
-                                                .$tstamp == '2018-06-08 20:44:00' |
-                                                .$tstamp == '2018-06-08 20:46:00' |
-                                                .$tstamp == '2018-06-08 20:48:00' |
-                                                .$tstamp == '2018-06-08 20:50:00' |
-                                                .$tstamp == '2018-06-08 20:52:00' |
-                                                .$tstamp == '2018-06-08 20:54:00' |
-                                                .$tstamp == '2018-06-08 20:56:00' |
-                                                .$tstamp == '2018-06-08 20:58:00' |
-                                                .$tstamp == '2018-06-08 21:00:00' |
-                                                .$tstamp == '2018-06-08 21:02:00' |
-                                                .$tstamp == '2018-06-08 21:04:00' |
-                                                .$tstamp == '2018-06-08 21:06:00' |
-                                                .$tstamp == '2018-06-08 21:08:00') & 
-                                               (.$startmm>=100 & .$startmm<=110)
-  )
-  )
-  ) %>% .$x
-  
-  c2 <- do(segstats, data.frame(x = which((.$tstamp=='2018-06-10 19:30:00' |
-                                                .$tstamp == '2018-06-10 19:32:00' |
-                                                .$tstamp == '2018-06-10 19:34:00' |
-                                                .$tstamp == '2018-06-10 19:36:00' |
-                                                .$tstamp == '2018-06-10 19:38:00' |
-                                                .$tstamp == '2018-06-10 19:40:00' |
-                                                .$tstamp == '2018-06-10 19:42:00' |
-                                                .$tstamp == '2018-06-10 19:44:00' |
-                                                .$tstamp == '2018-06-10 19:46:00' |
-                                                .$tstamp == '2018-06-10 19:48:00' |
-                                                .$tstamp == '2018-06-10 19:50:00' |
-                                                .$tstamp == '2018-06-10 19:52:00' |
-                                                .$tstamp == '2018-06-10 19:54:00' |
-                                                .$tstamp == '2018-06-10 19:56:00' |
-                                                .$tstamp == '2018-06-10 19:58:00' |
-                                                .$tstamp == '2018-06-10 20:00:00') & 
-                                               (.$startmm>=56 & .$startmm<=66)
-  )
-  )
-  ) %>% .$x
-  
-  c3 <- do(segstats, data.frame(x = which((.$tstamp=='2018-06-12 06:00:00' |
-                                                .$tstamp == '2018-06-12 06:02:00' |
-                                                .$tstamp == '2018-06-12 06:04:00' |
-                                                .$tstamp == '2018-06-12 06:06:00' |
-                                                .$tstamp == '2018-06-12 06:08:00' |
-                                                .$tstamp == '2018-06-12 06:10:00' |
-                                                .$tstamp == '2018-06-12 06:12:00' |
-                                                .$tstamp == '2018-06-12 06:14:00' |
-                                                .$tstamp == '2018-06-12 06:16:00' |
-                                                .$tstamp == '2018-06-12 06:18:00' |
-                                                .$tstamp == '2018-06-12 06:20:00' |
-                                                .$tstamp == '2018-06-12 06:22:00' |
-                                                .$tstamp == '2018-06-12 06:24:00' |
-                                                .$tstamp == '2018-06-12 06:26:00' |
-                                                .$tstamp == '2018-06-12 06:28:00' |
-                                                .$tstamp == '2018-06-12 06:30:00') & 
-                                               (.$startmm>=62 & .$startmm<=72)
-  )
-  )
-  ) %>% .$x
-  
-  c4 <- do(segstats, data.frame(x = which((.$tstamp=='2018-06-21 18:50:00' |
-                                                .$tstamp == '2018-06-21 18:52:00' |
-                                                .$tstamp == '2018-06-21 18:54:00' |
-                                                .$tstamp == '2018-06-21 18:56:00' |
-                                                .$tstamp == '2018-06-21 18:58:00' |
-                                                .$tstamp == '2018-06-21 19:00:00' |
-                                                .$tstamp == '2018-06-21 19:02:00' |
-                                                .$tstamp == '2018-06-21 19:04:00' |
-                                                .$tstamp == '2018-06-21 19:06:00' |
-                                                .$tstamp == '2018-06-21 19:08:00' |
-                                                .$tstamp == '2018-06-21 19:10:00' |
-                                                .$tstamp == '2018-06-21 19:12:00' |
-                                                .$tstamp == '2018-06-21 19:14:00' |
-                                                .$tstamp == '2018-06-21 19:16:00' |
-                                                .$tstamp == '2018-06-21 19:18:00' |
-                                                .$tstamp == '2018-06-21 19:20:00') & 
-                                               (.$startmm>=128 & .$startmm<=138)
-  )
-  )
-  ) %>% .$x
-  
-  c5 <- do(segstats, data.frame(x = which((.$tstamp=='2018-06-21 17:30:00' |
-                                                .$tstamp == '2018-06-21 17:32:00' |
-                                                .$tstamp == '2018-06-21 17:34:00' |
-                                                .$tstamp == '2018-06-21 17:36:00' |
-                                                .$tstamp == '2018-06-21 17:38:00' |
-                                                .$tstamp == '2018-06-21 17:40:00' |
-                                                .$tstamp == '2018-06-21 17:42:00' |
-                                                .$tstamp == '2018-06-21 17:44:00' |
-                                                .$tstamp == '2018-06-21 17:46:00' |
-                                                .$tstamp == '2018-06-21 17:48:00' |
-                                                .$tstamp == '2018-06-21 17:50:00' |
-                                                .$tstamp == '2018-06-21 17:52:00' |
-                                                .$tstamp == '2018-06-21 17:54:00' |
-                                                .$tstamp == '2018-06-21 17:56:00' |
-                                                .$tstamp == '2018-06-21 17:58:00' |
-                                                .$tstamp == '2018-06-21 18:00:00') & 
-                                               (.$startmm>=172 & .$startmm<=182)
-  )
-  )
-  ) %>% .$x
-  
-  c6 <- do(segstats, data.frame(x = which((.$tstamp=='2018-06-26 14:50:00' |
-                                                .$tstamp == '2018-06-26 14:52:00' |
-                                                .$tstamp == '2018-06-26 14:54:00' |
-                                                .$tstamp == '2018-06-26 14:56:00' |
-                                                .$tstamp == '2018-06-26 14:58:00' |
-                                                .$tstamp == '2018-06-26 15:00:00' |
-                                                .$tstamp == '2018-06-26 15:02:00' |
-                                                .$tstamp == '2018-06-26 15:04:00' |
-                                                .$tstamp == '2018-06-26 15:06:00' |
-                                                .$tstamp == '2018-06-26 15:08:00' |
-                                                .$tstamp == '2018-06-26 15:10:00' |
-                                                .$tstamp == '2018-06-26 15:12:00' |
-                                                .$tstamp == '2018-06-26 15:14:00' |
-                                                .$tstamp == '2018-06-26 15:16:00' |
-                                                .$tstamp == '2018-06-26 15:18:00' |
-                                                .$tstamp == '2018-06-26 15:20:00') & 
-                                               (.$startmm>=110 & .$startmm<=120)
-  )
-  )
-  ) %>% .$x
-  
-  all_crashes <- c(c1,c2,c3,c4,c5,c6) %>% unique()
-  
-  segstats <- segstats[-all_crashes,]
-  return(segstats)
-}
-segBaseline <- rm.crashes.base(segBaseline)
-
-sum(segBaseline$precip > 0)/nrow(segBaseline) * 100
 

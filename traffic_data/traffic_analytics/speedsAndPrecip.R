@@ -76,6 +76,7 @@ precip.ranges <- c(0,0.01,2.5,5,10,20,30,40,50,60,70,80,150)
 #c(0,0.01,2.5,5,10,20,40,60,80,100,140) #old ranges
 traffic$rcat <- cut(traffic$precip,
                     breaks=precip.ranges, right=F, include.lowest=T)
+uniqueRanges <- unique(traffic$rcat)
 
 
 # drop out known crashes
@@ -233,30 +234,218 @@ densityplot(~speed | weekend*hour.range*construction*urban,
             from=0, to=90, plot.points=F, auto.key=T)
 dev.off()
 
-png('./figures/bulkECDF/bulkECDF%02d.png', units='in', res=220, width=8.5, height=6)
-ecdfplot(~speed | weekend*hour.range*construction*urban,
-         data=distro, groups=event, as.table=T,
-         par.strip.text=list(cex=.68),
-         layout=c(4,2), xlab='Speed (mph)',
-         axis=axis.grid, alhpa=0.5, xlim=c(0,85),
-         from=0, to=90, plot.points=F, auto.key=list(cex=0.73),
-         scale=list(x=list(at=seq(0,85,10))))
-dev.off()
+
+# split the dataset into the region and construction subsets
+# i.e. Indianapolis Construction and Indianapolis non-construction (if it exists)
+# these smaller sets will clean up the plots in the end with fewer duplicated sections
+# in the lattice facets
+indy_construction <- distro %>% filter(urban=='Indianapolis' & construction=='Construction') 
+indy_nonConstruction <- distro %>% filter(urban=='Indianapolis' & construction=='Non-Construction')
+
+northernIN_construction <- distro %>% filter(urban=='Northern Indiana' & construction=='Construction') 
+northernIN_nonConstruction <- distro %>% filter(urban=='Northern Indiana' & construction=='Non-Construction')
+
+louisville_construction <- distro %>% filter(urban=='Louisville' & construction=='Construction')
+louisville_nonConstruction <- distro %>% filter(urban=='Louisville' & construction=='Non-Construction')
+
+rural_construction <- distro %>% filter(urban=='Rural' & construction=='Construction')
+rural_nonConstruction <- distro %>% filter(urban=='Rural' & construction=='Non-Construction')
+
+
+myData <- list(indy_construction, indy_nonConstruction, northernIN_construction, northernIN_nonConstruction,
+               louisville_construction, louisville_nonConstruction, rural_construction, rural_nonConstruction)
+
+
+
+
+# png('./figures/testqqmath.png')
+# p <- useOuterStrips(qqmath(event~speed | hour.range*weekend,
+#                            data=indy_nonConstruction, groups=event, as.table=T,
+#                            layout=c(4,2), auto.key=T)
+# )
+# print(p)
+# dev.off()
+
+
+# xyplot(startmm~speed | hour.range*weekend,
+#        data=indy_nonConstruction, groups=event, as.table=T,
+#        layout=c(4,2)
+#        )
+
+
+plot_i <- 1
+for (df in myData){
+  if (dim(df)[1] == 0){
+    next
+  }
+  
+  # png(paste0('./figures/bulkECDF/bulkECDF', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  # p <- useOuterStrips(ecdfplot(~speed | hour.range*weekend,
+  #                              data=df, groups=event, as.table=T,
+  #                              strip.left=T,
+  #                              par.strip.text=list(cex=.68),
+  #                              layout=c(4,2), xlab='Speed (mph)',
+  #                              main=paste0('Empirical Cumulative Distribution for ', df$urban[1], ' ', df$construction[1]),
+  #                              axis=axis.grid, alhpa=0.5, xlim=c(0,85),
+  #                              from=0, to=90, plot.points=F, auto.key=list(cex=0.73, columns=2),
+  #                              scale=list(x=list(at=seq(0,85,10), cex=0.7, alternating=T),
+  #                                         y=list(cex=0.7))
+  #                              )
+  #                     )
+  # print(p)
+  # dev.off()
+  # 
+  # png(paste0('./figures/bulkbwplot/bulkbwplot', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  # p <- useOuterStrips(bwplot(rcat~speed | hour.range*weekend,
+  #                            data=df, axis=axis.grid, do.out=T, as.table=T,
+  #                            par.settings = list(plot.symbol = list(pch = 16, cex=0.3, alpha=0.5)),
+  #                            strip.left=T,
+  #                            par.strip.text=list(cex=.68), layout=c(4,2),
+  #                            main=paste0('Box and Whisker Plot for ', df$urban[1], ' ', df$construction[1]),
+  #                            xlab='Speed (mph)', ylab='Precipitation Rate (mm/hr)',
+  #                            cex=0.3, xlim=c(0,85),
+  #                            scale=list(x=list(at=seq(0,85,10), cex=0.7),
+  #                                       y=list(cex=0.7))
+  #                            )
+  #                     )
+  # print(p)
+  # dev.off()
+  # 
+  # df.summary <- df %>% group_by(rcat,weekend,hour.range,construction) %>% tally() #%>% filter(n <= 200)
+  # 
+  # png(paste0('./figures/sampleSizes/bulkSampleSizes', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  # p <- useOuterStrips(dotplot(rcat~n | hour.range*weekend, 
+  #                             data=df.summary,
+  #                             as.table=T,
+  #                             axis=axis.grid,
+  #                             pch=16, cex=0.5,
+  #                             strip.left=T,
+  #                             par.strip.text=list(cex=.68),
+  #                             main=paste0('Sample Sizes for ', df$urban[1], ' ', df$construction[1], ' (<= 200)'),
+  #                             xlab='Precipitation Rate (mm/hr)',
+  #                             ylab='Sample Size',
+  #                             layout=c(6,2),
+  #                             xlim=c(0,200),
+  #                             scales=list(x=list(at=seq(0,200,25), cex=.65),
+  #                                         y=list(cex=0.65))
+  #                             )
+  #                     )
+  # print(p)
+  # dev.off()
+  
+  # png(paste0('./figures/QQ_Plots/QQ_Distros', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  # p <- useOuterStrips(qq(event~speed | hour.range*weekend,
+  #                        data=df, as.table=T,
+  #                        strip.left=T,
+  #                        par.strip.text=list(cex=0.68),
+  #                        layout=c(4,2), cex=0.3, xlab='Precipitable Speeds (mph)',
+  #                        ylab='Non-Precipitable Speeds (mph)',
+  #                        main=paste0('Quantile-Quantile Plot for ', df$urban[1], ' ', df$construction[1]),
+  #                        axis= axis.grid, alpha=0.5, pch=16, xlim=c(0,90), ylim=c(0,90),
+  #                        scale=list(x=list(at=seq(0,90,10), cex=0.7),
+  #                              y=list(at=seq(0,90,10), cex=0.7))
+  #                        )
+  #                     )
+  # print(p)
+  # dev.off()
+  
+  # png(paste0('./figures/qq_math/QQ_normal', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  # p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
+  #                            data=df, groups=event, as.table=T,
+  #                            strip.left=T,
+  #                            par.strip.text=list(cex=0.68),
+  #                            layout=c(4,2), cex=0.3, xlab='Normal Distribution',
+  #                            ylab='Speed (mph)',
+  #                            main=paste0('Traffic Speed Vs Normal Distribution for ', df$urban[1], ' ', df$construction[1]),
+  #                            axis=axis.grid, alpha=0.5, pch=16, ylim=c(0,90),
+  #                            scale=list(x=list(cex=0.7),
+  #                                       y=list(at=seq(0,90,10), cex=0.7)
+  #                                       )
+  #                            )
+  #                     )
+  # print(p)
+  # dev.off()
+  
+  png(paste0('./figures/qq_math/QQ_gamma', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
+                             data=df, groups=event, as.table=T,
+                             strip.left=T,
+                             par.strip.text=list(cex=0.68),
+                             layout=c(4,2), cex=0.3, xlab='Normal Distribution',
+                             ylab='Speed (mph)',
+                             main=paste0('Traffic Speed Vs Normal Distribution for ', df$urban[1], ' ', df$construction[1]),
+                             distribution=function(x) {
+                               qgamma(x, shape=1, rate=0.5)
+                             },
+                             axis=axis.grid, alpha=0.5, pch=16, ylim=c(0,90),
+                             scale=list(x=list(cex=0.7),
+                                        y=list(at=seq(0,90,10), cex=0.7)
+                                        )
+                             )
+                      )
+  print(p)
+  dev.off()
+
+  
+  plot_i <- plot_i + 1
+}
+
+
+for (df in myData){
+  if (dim(df)[1] == 0){
+    next
+  }
+  
+  for (i in c('Morning','Morning Rush', 'Afternoon Rush', 'Evening')) {
+    
+    tmp.precip.weekday <- df %>% filter(event == 'Precipitable' & hour.range==i & weekend=='Weekday')
+    tmp.nonPrecip.weekday <- df %>% filter(event == 'Non-Precipitable' & hour.range==i & weekend=='Weekday')
+    
+    out <- ks.test(tmp.precip.weekday$speed, tmp.nonPrecip.weekday$speed, alternative='greater')
+    print(paste0('Kolmogorov Smirnoff Test for ', df$urban[1], ' ', df$construction[1], 
+                 ' hour range ', i, ' on a weekday yields: '))
+    print(out)
+    
+    tmp.precip.weekend <- df %>% filter(event == 'Precipitable' & hour.range==i & weekend=='Weekend')
+    tmp.nonPrecip.weekend <- df %>% filter(event == 'Non-Precipitable' & hour.range==i & weekend=='Weekend')
+    
+    out <- ks.test(tmp.precip.weekend$speed, tmp.nonPrecip.weekend$speed, alternative='greater')
+    print(paste0('Kolmogorov Smirnoff Test for ', df$urban[1], ' ', df$construction[1], 
+                 ' hour range ', i, ' on a weekend yields: '))
+    print(out)
+    
+  }
+}
+
+
+
+
+
+# png('./figures/bulkECDF/bulkECDF%02d.png', units='in', res=220, width=8.5, height=6)
+# ecdfplot(~speed | weekend*hour.range*construction*urban,
+#          data=distro, groups=event, as.table=T,
+#          par.strip.text=list(cex=.68),
+#          layout=c(4,2), xlab='Speed (mph)',
+#          axis=axis.grid, alhpa=0.5, xlim=c(0,85),
+#          from=0, to=90, plot.points=F, auto.key=list(cex=0.73),
+#          scale=list(x=list(at=seq(0,85,10))))
+# dev.off()
 
 sub <- traffic[sample(nrow(traffic),10000),]
 
-png('./figures/bulkbwplot/bulkbwplot%02d.png', units='in', res=220, width=8.5, height=6)
-bwplot(rcat~speed | weekend*hour.range*construction*urban, 
-       data=traffic, axis=axis.grid, do.out=T, as.table=T,
-       par.settings = list(plot.symbol = list(pch = 16, cex=0.3, alpha=0.5)),
-       par.strip.text=list(cex=.68), layout=c(4,2),
-       xlab='Speed (mph)', ylab='Precipitation Rate (mm/hr)',
-       cex=0.3, xlim=c(0,85),
-       scale=list(x=list(at=seq(0,85,10), cex=0.7),
-                  y=list(cex=0.7)
-                  )
-       )
-dev.off()
+
+# png('./figures/bulkbwplot/bulkbwplot%02d.png', units='in', res=220, width=8.5, height=6)
+# bwplot(rcat~speed | weekend*hour.range*construction*urban, 
+#        data=traffic, axis=axis.grid, do.out=T, as.table=T,
+#        par.settings = list(plot.symbol = list(pch = 16, cex=0.3, alpha=0.5)),
+#        par.strip.text=list(cex=.68), layout=c(4,2),
+#        xlab='Speed (mph)', ylab='Precipitation Rate (mm/hr)',
+#        cex=0.3, xlim=c(0,85),
+#        scale=list(x=list(at=seq(0,85,10), cex=0.7),
+#                   y=list(cex=0.7)
+#                   )
+#        )
+# dev.off()
 
 traffic.summary <- traffic %>% group_by(event, rcat, weekend, hour.range, construction, urban) %>% 
   summarize(n=n(),
@@ -438,58 +627,119 @@ traffic.summary <- traffic.summary %>% tidyr::fill(median.b, avg.b)
 percent.reduction <- 100 - (traffic.summary$median.r / traffic.summary$median.b)*100
 traffic.summary$median.percent.reduction <- percent.reduction %>% round(2)
 
+traffic.summary$raw.reduction <- traffic.summary$median.r - traffic.summary$median.b
+
 percent.reduction.avg <- 100 - (traffic.summary$avg.r / traffic.summary$avg.b)*100
 traffic.summary$avg.percent.reduction <- percent.reduction.avg %>% round(2)
 
 
-pdf('./figures/median_percentReduction.pdf', width=10, height=7)
-xyplot(rcat~median.percent.reduction | factor(weekend)*factor(hour.range)*factor(construction),
-       data=traffic.summary, groups=urban, alpha=0.8, cex=0.5,
-       axis=axis.grid, auto.key=T, ylab='Precipitation Intensity (mm/hr)',
-       xlab='Median Speed (mph)', main='Median Speed Percent Reduction',
-       layout=c(4,2), xlim=c(-10,20),
-       scales=list(x=list(at=seq(-10,20,2), rot=90)))
-dev.off()
+construction.summary <- traffic.summary %>% filter(construction=='Construction')
+nonConstruction.summary <- traffic.summary %>% filter(construction=='Non-Construction')
 
-traffic.summary.100 <- traffic.summary %>% filter(n.r > 100)
+myData <- list(construction.summary, nonConstruction.summary)
 color1 <- '#648FFF'; color2 <- '#785EF0'; color3 <- '#DC267F'; color4 <- '#FE6100'; color5 <- '#FFB000'
 
-png('./figures/percent_reductions/median_percentReduction_samplesG100%02d.png', 
+# plot_i <- 1
+# for (df in myData){
+#   if (dim(df)[1] == 0){
+#     next
+#   }
+#   
+#   png(paste0('./figures/percent_reductions/median_percentReduction', plot_i, '.png'), 
+#       units='in', res=220, width=8.5, height=6)
+#   p <- useOuterStrips(  xyplot(rcat~median.percent.reduction | hour.range*weekend,
+#                                data=df[which(df$n.r > 100),], groups=urban, alpha=0.7, cex=0.7, pch=c(16,15,17,18), 
+#                                col=c(color1, color2, color3, color4), jitter=T,
+#                                axis=axis.grid, ylab='Precipitation Intensity (mm/hr)',
+#                                xlab='Median Speed (mph)', main='Median Speed Percent Reduction (Sample Sizes > 100)',
+#                                par.strip.text=list(cex=0.68),
+#                                auto.key=list(columns=4),
+#                                # key=list(space='top',
+#                                #          text=list(levels(factor(c('Indianapolis', 'Louisville', 'Northern Indiana', 'Rural')))),
+#                                #          cex=0.9,
+#                                #          points=list(pch=c(16,15,17,18), cex=0.7, col=c(color1, color2, color3, color4), alpha=0.7),
+#                                #          columns=4
+#                                #          ),
+#                                as.table=T,
+#                                strip.left=T,
+#                                layout=c(4,2), xlim=c(-6,16),
+#                                scales=list(x=list(at=seq(-10,20,2), rot=90, cex=0.7),
+#                                            y=list(cex=0.7)
+#                                            )
+#                                )
+#                         )
+# 
+#   
+#   print(p)
+#   dev.off()
+# 
+# 
+#   
+#   plot_i <- plot_i + 1
+# }
+
+
+
+
+
+png(paste0('./figures/speed_reductions/median_Reduction_Construction.png'), 
     units='in', res=220, width=8.5, height=6)
-xyplot(rcat~median.percent.reduction | factor(weekend)*factor(hour.range)*factor(construction),
-       data=traffic.summary.100, groups=urban, alpha=0.7, cex=0.7, pch=c(16,15,17,18), 
-       col=c(color1, color2, color3, color4), jitter=T,
-       axis=axis.grid, ylab='Precipitation Intensity (mm/hr)',
-       xlab='Median Speed (mph)', main='Median Speed Percent Reduction (Sample Sizes > 100)',
-       par.strip.text=list(cex=0.68),
-       key=list(space='top',
-                text=list(levels(factor(traffic.summary.100$urban)), cex=0.9),
-                points=list(pch=c(16,15,17,18), cex=0.7, col=c(color1, color2, color3, color4), alpha=0.7),
-                columns=4
-                ),
-       as.table=T,
-       layout=c(4,2), xlim=c(-6,16),
-       scales=list(x=list(at=seq(-10,20,2), rot=90, cex=0.7),
-                   y=list(cex=0.7))
-       )
+p <- useOuterStrips(  xyplot(rcat~raw.reduction | hour.range*weekend,
+                             data=construction.summary[which(construction.summary$n.r > 100),], 
+                             groups=urban, alpha=0.7, cex=0.7, pch=c(17,18), 
+                             col=c(color3, color4), jitter=T,
+                             axis=axis.grid, 
+                             ylab='Precipitation Intensity (mm/hr)',
+                             xlab='Speed (mph)', 
+                             main='Median Speed Reduction for Construction (Sample Sizes > 100)',
+                             par.strip.text=list(cex=0.68),
+                             key=list(space='top',
+                                      text=list(levels(factor(c('Northern Indiana', 'Rural')))),
+                                      cex=0.9,
+                                      points=list(pch=c(17,18), cex=0.7, 
+                                                  col=c(color3, color4), 
+                                                  alpha=0.7),
+                                      columns=2
+                                      ),
+                             as.table=T,
+                             strip.left=T,
+                             layout=c(4,2), xlim=c(-11,5),
+                             scales=list(x=list(at=seq(-10,4,2), cex=0.7),
+                                         y=list(cex=0.7)
+                                         )
+                             )
+                      )
+print(p)
 dev.off()
 
-png('./figures/percent_reductions/avg_percentReduction_samplesG100%02d.png', 
+png(paste0('./figures/speed_reductions/median_Reduction_nonConstruction.png'), 
     units='in', res=220, width=8.5, height=6)
-xyplot(rcat~avg.percent.reduction | factor(weekend)*factor(hour.range)*factor(construction),
-       data=traffic.summary.100, groups=urban, alpha=0.7, cex=0.7, pch=c(16,15,17,18), 
-       col=c(color1, color2, color3, color4), jitter=T,
-       axis=axis.grid, ylab='Precipitation Intensity (mm/hr)',
-       xlab='Average Speed (mph)', main='Average Speed Percent Reduction (Sample Sizes > 100)',
-       par.strip.text=list(cex=0.68),
-       key=list(space='top',
-                text=list(levels(factor(traffic.summary.100$urban)), cex=0.9),
-                points=list(pch=c(16,15,17,18), cex=0.7, col=c(color1, color2, color3, color4), alpha=0.7),
-                columns=4
-       ),
-       as.table=T,
-       layout=c(4,2), xlim=c(-6,16),
-       scales=list(x=list(at=seq(-10,20,2), rot=90, cex=0.7),
-                   y=list(cex=0.7))
-)
+p <- useOuterStrips(  xyplot(rcat~raw.reduction | hour.range*weekend,
+                             data=nonConstruction.summary[which(nonConstruction.summary$n.r > 100),], 
+                             groups=urban, alpha=0.7, cex=0.7, pch=c(15,16,17,18), 
+                             col=c(color1, color2, color3, color4), jitter=T,
+                             axis=axis.grid, 
+                             ylab='Precipitation Intensity (mm/hr)',
+                             xlab='Speed (mph)', 
+                             main='Median Speed Reduction for Non-Construction Zones (Sample Sizes > 100)',
+                             par.strip.text=list(cex=0.68),
+                             key=list(space='top',
+                                      text=list(levels(factor(c('Indianapolis', 'Louisville', 'Northern Indiana', 'Rural')))),
+                                      cex=0.9,
+                                      points=list(pch=c(15,16,17,18), cex=0.7, 
+                                                  col=c(color1, color2, color3, color4), 
+                                                  alpha=0.7),
+                                      columns=4
+                             ),
+                             as.table=T,
+                             strip.left=T,
+                             layout=c(4,2), xlim=c(-11,5),
+                             scales=list(x=list(at=seq(-10,4,2), cex=0.7),
+                                         y=list(cex=0.7)
+                                         )
+                             )
+                      )
+print(p)
 dev.off()
+
+# plot the average percent reduction and maybe sample sizes? The sample sizes before should be sufficient right?

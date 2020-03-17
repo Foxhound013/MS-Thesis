@@ -1,3 +1,4 @@
+
 library(data.table)
 library(dplyr)
 library(lattice); library(latticeExtra);
@@ -257,7 +258,6 @@ myData <- list(indy_construction, indy_nonConstruction, northernIN_construction,
 
 
 
-
 # png('./figures/testqqmath.png')
 # p <- useOuterStrips(qqmath(event~speed | hour.range*weekend,
 #                            data=indy_nonConstruction, groups=event, as.table=T,
@@ -271,6 +271,7 @@ myData <- list(indy_construction, indy_nonConstruction, northernIN_construction,
 #        data=indy_nonConstruction, groups=event, as.table=T,
 #        layout=c(4,2)
 #        )
+
 
 
 plot_i <- 1
@@ -354,11 +355,17 @@ for (df in myData){
   #                            data=df, groups=event, as.table=T,
   #                            strip.left=T,
   #                            par.strip.text=list(cex=0.68),
+  #                            f.value=c(0.05,0.25,0.50,0.75,0.95),
   #                            layout=c(4,2), cex=0.3, xlab='Normal Distribution',
   #                            ylab='Speed (mph)',
   #                            main=paste0('Traffic Speed Vs Normal Distribution for ', df$urban[1], ' ', df$construction[1]),
-  #                            axis=axis.grid, alpha=0.5, pch=16, ylim=c(0,90),
-  #                            scale=list(x=list(cex=0.7),
+  #                            axis=axis.grid, pch=16, ylim=c(0,90), #alpha=0.5,
+  #                            xlim=c(-5,5),
+  #                            key=list(space='top', text=list(levels(df$event)),
+  #                                     cex=0.9, columns=2, 
+  #                                     points=list(pch=16, cex=0.7, col=c('#0080ff', '#ff00ff'))
+  #                            ),
+  #                            scale=list(x=list(at=seq(-4,4,2), cex=0.7),
   #                                       y=list(at=seq(0,90,10), cex=0.7)
   #                                       )
   #                            )
@@ -366,26 +373,70 @@ for (df in myData){
   # print(p)
   # dev.off()
   
+  # df2 <- df
+  # df <- df2 %>% filter(speed <= 60)
+  
+  alpha <- round((mean(df$speed)/sd(df$speed))^2, 2) # shape
+  beta <- round(sd(df$speed)^2/mean(df$speed), 2) # scale
+  
+  # png(paste0('./figures/qq_math/QQ_gamma', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  # p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
+  #                            data=df, groups=event, as.table=T,
+  #                            strip.left=T,
+  #                            par.strip.text=list(cex=0.68),
+  #                            f.value=seq(0,1,0.05),
+  #                            layout=c(4,2), cex=0.3, xlab=paste0('Gamma Distribution (Shape=', alpha, ' and Scale=', beta, ')'),
+  #                            ylab='Speed (mph)',
+  #                            main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', df$construction[1]),
+  #                            distribution=function(x) {
+  #                              qgamma(x, shape=alpha, scale=beta)
+  #                            },
+  #                            axis=axis.grid, pch=16, ylim=c(0,90), xlim=c(0,90), #alpha=0.5,
+  #                            key=list(space='top', text=list(levels(df$event)),
+  #                                     cex=0.9, columns=2, 
+  #                                     points=list(pch=16, cex=0.7, col=c('#0080ff', '#ff00ff'))
+  #                                     ),
+  #                            scale=list(x=list(at=seq(0,90,10), cex=0.7),
+  #                                       y=list(at=seq(0,90,10), cex=0.7)
+  #                                       )
+  #                            )
+  #                     )
+  # print(p)
+  # dev.off()
+
+  
+  # need to write up a panel function that will add in lines for the percentiles that wen-wen requested.
   png(paste0('./figures/qq_math/QQ_gamma', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
   p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
                              data=df, groups=event, as.table=T,
                              strip.left=T,
                              par.strip.text=list(cex=0.68),
-                             layout=c(4,2), cex=0.3, xlab='Normal Distribution',
+                             f.value=seq(0,1,0.05),
+                             layout=c(1,1,1), cex=0.3, xlab=paste0('Gamma Distribution (Shape=', alpha, ' and Scale=', beta, ')'),
                              ylab='Speed (mph)',
-                             main=paste0('Traffic Speed Vs Normal Distribution for ', df$urban[1], ' ', df$construction[1]),
+                             main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', df$construction[1]),
                              distribution=function(x) {
-                               qgamma(x, shape=1, rate=0.5)
+                               qgamma(x, shape=alpha, scale=beta)
                              },
-                             axis=axis.grid, alpha=0.5, pch=16, ylim=c(0,90),
-                             scale=list(x=list(cex=0.7),
+                             panel=function(x=speed,groups,distribution,f.value=f.value,...) {
+                               qqmath(~x, ...)
+
+                             },
+                             axis=axis.grid, pch=16, ylim=c(0,90), xlim=c(0,90), #alpha=0.5,
+                             key=list(space='top', text=list(levels(df$event)),
+                                      cex=0.9, columns=2, 
+                                      points=list(pch=16, cex=0.7, col=c('#0080ff', '#ff00ff'))
+                             ),
+                             scale=list(x=list(at=seq(0,90,10), cex=0.7),
                                         y=list(at=seq(0,90,10), cex=0.7)
                                         )
                              )
                       )
   print(p)
   dev.off()
+  
 
+  
   
   plot_i <- plot_i + 1
 }

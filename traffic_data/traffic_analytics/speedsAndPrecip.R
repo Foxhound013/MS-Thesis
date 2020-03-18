@@ -216,8 +216,8 @@ sum(traffic$precip > 0)/nrow(traffic) * 100
 
 sub <- traffic[sample(nrow(traffic),10000),]
 
-xyplot(startmm~speed | factor(dayofweek)*factor(hour.range)*factor(construction),
-       data=sub, groups=event, pch=16, alpha=0.3, layout=c(7,1,1))
+# xyplot(startmm~speed | factor(dayofweek)*factor(hour.range)*factor(construction),
+#        data=sub, groups=event, pch=16, alpha=0.3, layout=c(7,1,1))
 
 distro <- traffic
 distro$event <- ifelse(distro$event==T, yes='Precipitable', no='Non-Precipitable')
@@ -227,13 +227,13 @@ distro$event <- factor(distro$event,
 
 sub <- distro[sample(nrow(distro), 10000),]
 
-pdf('./figures/bulkDensity.pdf', width=12, height=8)
-densityplot(~speed | weekend*hour.range*construction*urban,
-            data=distro, groups=event, 
-            layout=c(4,2), xlab='Speed (mph)',
-            axis=axis.grid, alhpa=0.5,
-            from=0, to=90, plot.points=F, auto.key=T)
-dev.off()
+# pdf('./figures/bulkDensity.pdf', width=12, height=8)
+# densityplot(~speed | weekend*hour.range*construction*urban,
+#             data=distro, groups=event, 
+#             layout=c(4,2), xlab='Speed (mph)',
+#             axis=axis.grid, alhpa=0.5,
+#             from=0, to=90, plot.points=F, auto.key=T)
+# dev.off()
 
 
 # split the dataset into the region and construction subsets
@@ -255,6 +255,60 @@ rural_nonConstruction <- distro %>% filter(urban=='Rural' & construction=='Non-C
 
 myData <- list(indy_construction, indy_nonConstruction, northernIN_construction, northernIN_nonConstruction,
                louisville_construction, louisville_nonConstruction, rural_construction, rural_nonConstruction)
+
+
+
+alpha <- round((mean(indy_nonConstruction$speed)/sd(indy_nonConstruction$speed))^2, 2) # shape
+beta <- round(sd(indy_nonConstruction$speed)^2/mean(indy_nonConstruction$speed), 2) # scale
+
+# need to write up a panel function that will add in lines for the percentiles that wen-wen requested.
+png(paste0('./figures/qq_math/QQ_gamma7.png'), units='in', res=220, width=8.5, height=6)
+p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
+                           data=indy_nonConstruction, groups=event, as.table=T,
+                           strip.left=T,
+                           par.strip.text=list(cex=0.68),
+                           layout=c(4,2), cex=0.3, #xlab=paste0('Gamma Distribution (Shape=', alpha, ' and Scale=', beta, ')'),
+                           ylab='Speed (mph)', xlab=list(cex=.3),
+                           main=paste0('Traffic Speed Vs Gamma Distribution for ', indy_nonConstruction$urban[1], ' ', 
+                                       indy_nonConstruction$construction[1]),
+                           # distribution=function(x, alpha, beta) {
+                           #   # DO NOT EVALUATE ALPHA AND BETA HERE
+                           #   # alpha <- round((mean(x)/sd(x))^2, 2) # shape
+                           #   # beta <- round(sd(x)^2/mean(x), 2) # scale
+                           #   # browser()
+                           #   # print(paste0('Alpha: ', alpha, ' Beta: ', beta))
+                           #   qgamma(x, shape=alpha, scale=beta)
+                           # },
+                           # f.value=seq(0,1,0.25),
+                           f.value=NULL,
+                           panel=function(x,groups, distribution,...) {
+                             # browser()
+                             alpha <- round((mean(x)/sd(x))^2, 2) # shape
+                             beta <- round(sd(x)^2/mean(x), 2) # scale
+                             fval=seq(0,1,0.25)
+                             
+                             # panel.text(0,0,labels=paste0('Shape=', alpha, ' Scale=', beta), cex=.2)
+                             panel.qqmath(x, groups=groups, f.value=fval,
+                                          distribution=function(x=f.value, shape=alpha, scale=beta) {
+                                            qgamma(x, shape=shape, scale=scale)
+                                          },
+                                          ...)
+                           },
+                           axis=axis.grid, pch=16, ylim=c(0,90), xlim=c(0,90), #alpha=0.5,
+                           key=list(space='top', text=list(levels(indy_nonConstruction$event)),
+                                    cex=0.9, columns=2,
+                                    points=list(pch=16, cex=0.7, col=c('#0080ff', '#ff00ff'))
+                           ),
+                           scale=list(x=list(at=seq(0,90,10), cex=0.7),
+                                      y=list(at=seq(0,90,10), cex=0.7)
+                                      )
+                           )
+                    )
+print(p)
+dev.off()
+
+
+
 
 
 
@@ -379,54 +433,24 @@ for (df in myData){
   alpha <- round((mean(df$speed)/sd(df$speed))^2, 2) # shape
   beta <- round(sd(df$speed)^2/mean(df$speed), 2) # scale
   
-  # png(paste0('./figures/qq_math/QQ_gamma', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
-  # p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
-  #                            data=df, groups=event, as.table=T,
-  #                            strip.left=T,
-  #                            par.strip.text=list(cex=0.68),
-  #                            f.value=seq(0,1,0.05),
-  #                            layout=c(4,2), cex=0.3, xlab=paste0('Gamma Distribution (Shape=', alpha, ' and Scale=', beta, ')'),
-  #                            ylab='Speed (mph)',
-  #                            main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', df$construction[1]),
-  #                            distribution=function(x) {
-  #                              qgamma(x, shape=alpha, scale=beta)
-  #                            },
-  #                            axis=axis.grid, pch=16, ylim=c(0,90), xlim=c(0,90), #alpha=0.5,
-  #                            key=list(space='top', text=list(levels(df$event)),
-  #                                     cex=0.9, columns=2, 
-  #                                     points=list(pch=16, cex=0.7, col=c('#0080ff', '#ff00ff'))
-  #                                     ),
-  #                            scale=list(x=list(at=seq(0,90,10), cex=0.7),
-  #                                       y=list(at=seq(0,90,10), cex=0.7)
-  #                                       )
-  #                            )
-  #                     )
-  # print(p)
-  # dev.off()
-
-  
-  # need to write up a panel function that will add in lines for the percentiles that wen-wen requested.
   png(paste0('./figures/qq_math/QQ_gamma', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
   p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
                              data=df, groups=event, as.table=T,
                              strip.left=T,
                              par.strip.text=list(cex=0.68),
                              f.value=seq(0,1,0.05),
-                             layout=c(1,1,1), cex=0.3, xlab=paste0('Gamma Distribution (Shape=', alpha, ' and Scale=', beta, ')'),
+                             layout=c(4,2), cex=0.3, xlab=paste0('Gamma Distribution (Shape=', alpha, ' and Scale=', beta, ')'),
                              ylab='Speed (mph)',
                              main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', df$construction[1]),
                              distribution=function(x) {
+                               browser()
                                qgamma(x, shape=alpha, scale=beta)
-                             },
-                             panel=function(x=speed,groups,distribution,f.value=f.value,...) {
-                               qqmath(~x, ...)
-
                              },
                              axis=axis.grid, pch=16, ylim=c(0,90), xlim=c(0,90), #alpha=0.5,
                              key=list(space='top', text=list(levels(df$event)),
-                                      cex=0.9, columns=2, 
+                                      cex=0.9, columns=2,
                                       points=list(pch=16, cex=0.7, col=c('#0080ff', '#ff00ff'))
-                             ),
+                                      ),
                              scale=list(x=list(at=seq(0,90,10), cex=0.7),
                                         y=list(at=seq(0,90,10), cex=0.7)
                                         )
@@ -434,6 +458,37 @@ for (df in myData){
                       )
   print(p)
   dev.off()
+
+  
+  # need to write up a panel function that will add in lines for the percentiles that wen-wen requested.
+  # png(paste0('./figures/qq_math/QQ_gamma', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  # p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
+  #                            data=df, groups=event, as.table=T,
+  #                            strip.left=T,
+  #                            par.strip.text=list(cex=0.68),
+  #                            f.value=seq(0,1,0.05),
+  #                            layout=c(1,1,1), cex=0.3, xlab=paste0('Gamma Distribution (Shape=', alpha, ' and Scale=', beta, ')'),
+  #                            ylab='Speed (mph)',
+  #                            main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', df$construction[1]),
+  #                            distribution=function(x) {
+  #                              qgamma(x, shape=alpha, scale=beta)
+  #                            },
+  #                            panel=function(x=speed,groups,distribution,f.value=f.value,...) {
+  #                              qqmath(~x, ...)
+  # 
+  #                            },
+  #                            axis=axis.grid, pch=16, ylim=c(0,90), xlim=c(0,90), #alpha=0.5,
+  #                            key=list(space='top', text=list(levels(df$event)),
+  #                                     cex=0.9, columns=2, 
+  #                                     points=list(pch=16, cex=0.7, col=c('#0080ff', '#ff00ff'))
+  #                            ),
+  #                            scale=list(x=list(at=seq(0,90,10), cex=0.7),
+  #                                       y=list(at=seq(0,90,10), cex=0.7)
+  #                                       )
+  #                            )
+  #                     )
+  # print(p)
+  # dev.off()
   
 
   

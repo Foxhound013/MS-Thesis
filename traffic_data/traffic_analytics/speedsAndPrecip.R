@@ -267,8 +267,9 @@ p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
                            data=indy_nonConstruction, groups=event, as.table=T,
                            strip.left=T,
                            par.strip.text=list(cex=0.68),
-                           layout=c(4,2), cex=0.3, #xlab=paste0('Gamma Distribution (Shape=', alpha, ' and Scale=', beta, ')'),
-                           ylab='Speed (mph)', xlab=list(cex=.3),
+                           layout=c(4,2), cex=0.3, 
+                           xlab='Gamma Distribution',
+                           ylab='Speed (mph)',
                            main=paste0('Traffic Speed Vs Gamma Distribution for ', indy_nonConstruction$urban[1], ' ', 
                                        indy_nonConstruction$construction[1]),
                            # distribution=function(x, alpha, beta) {
@@ -280,21 +281,27 @@ p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
                            #   qgamma(x, shape=alpha, scale=beta)
                            # },
                            # f.value=seq(0,1,0.25),
-                           f.value=NULL,
-                           panel=function(x,groups, distribution,...) {
+                           # f.value=NULL,
+                           # fv=seq(0,1,0.25),
+                           panel=function(x,groups, distribution, f.value,...) {
                              # browser()
                              alpha <- round((mean(x)/sd(x))^2, 2) # shape
                              beta <- round(sd(x)^2/mean(x), 2) # scale
-                             fval=seq(0,1,0.25)
                              
                              # panel.text(0,0,labels=paste0('Shape=', alpha, ' Scale=', beta), cex=.2)
-                             panel.qqmath(x, groups=groups, f.value=fval,
-                                          distribution=function(x=f.value, shape=alpha, scale=beta) {
+                             panel.qqmath(x, groups=groups,
+                                          # f.value=seq(0,1,0.05),
+                                          f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
+                                          distribution=function(x, shape=alpha, scale=beta) {
+                                            # browser()
                                             qgamma(x, shape=shape, scale=scale)
                                           },
                                           ...)
+                             panel.abline(0,1, col='black', alpha=0.4)
+                             panel.text(15,20,labels=paste0('Shape: ', alpha), cex=0.6)
+                             panel.text(15,10,labels=paste0('Scale: ', beta), cex=0.6)
                            },
-                           axis=axis.grid, pch=16, ylim=c(0,90), xlim=c(0,90), #alpha=0.5,
+                           axis=axis.grid, pch=16, ylim=c(-5,90), xlim=c(-5,90), #alpha=0.5,
                            key=list(space='top', text=list(levels(indy_nonConstruction$event)),
                                     cex=0.9, columns=2,
                                     points=list(pch=16, cex=0.7, col=c('#0080ff', '#ff00ff'))
@@ -438,12 +445,11 @@ for (df in myData){
                              data=df, groups=event, as.table=T,
                              strip.left=T,
                              par.strip.text=list(cex=0.68),
-                             f.value=seq(0,1,0.05),
+                             #f.value=seq(0,1,0.05),
                              layout=c(4,2), cex=0.3, xlab=paste0('Gamma Distribution (Shape=', alpha, ' and Scale=', beta, ')'),
                              ylab='Speed (mph)',
                              main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', df$construction[1]),
                              distribution=function(x) {
-                               browser()
                                qgamma(x, shape=alpha, scale=beta)
                              },
                              axis=axis.grid, pch=16, ylim=c(0,90), xlim=c(0,90), #alpha=0.5,

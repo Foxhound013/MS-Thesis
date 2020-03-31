@@ -21,9 +21,9 @@ tm_shape(road.map) + tm_dots()
 traffic <- traffic %>% mutate(event=ifelse(precip > 0, yes=T, no=F))
 segs <- traffic %>% select(position) %>% unique()
 
-traffic <- traffic %>% group_by(startmm) %>% mutate(medianSpd=median(speed)) %>% ungroup()
-traffic$speedClass <- ifelse(traffic$speed >= traffic$medianSpd,
-                             yes='Normal', no='Slow Down')
+# traffic <- traffic %>% group_by(startmm) %>% mutate(medianSpd=median(speed)) %>% ungroup()
+# traffic$speedClass <- ifelse(traffic$speed >= traffic$medianSpd,
+#                              yes='Normal', no='Slow Down')
 
 traffic <- traffic %>% mutate(region=ifelse(position >= 2 & position <= 15,
                                             yes='Louisville', 
@@ -38,6 +38,11 @@ traffic <- traffic %>% mutate(region=ifelse(position >= 2 & position <= 15,
 
 spd.ranges <- c(0,40,50,100)
 traffic$rspd <- cut(traffic$speed, breaks=spd.ranges, right=F, include.lowest=T)
+
+# add in a lagged speed, how many minutes, maybe 16 minutes? (i.e. 8 time steps)
+traffic$laggedSpeed <- traffic %>% group_by(startmm) %>% lag('speed', n=8)
+
+tmp <- traffic %>% filter(startmm==0.580)
 
 precip.ranges <- c(0,0.01,2.5,5,10,20,30,40,50,60,70,80,150)
 traffic$rcat <- cut(traffic$precip,
@@ -99,6 +104,8 @@ sub$weekend <- factor(sub$weekend,
 
 #sub$speedClass <- factor(sub$speedClass)
 sub$bearing <- factor(sub$bearing)
+
+
 
 # sub$startmm <- factor(sub$startmm)
 

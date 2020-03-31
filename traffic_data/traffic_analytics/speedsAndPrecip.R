@@ -211,29 +211,15 @@ c6 <- do(traffic, data.frame(x = which((.$tstamp=='2018-06-26 14:50:00' |
 all_crashes <- c(c1,c2,c3,c4,c5,c6) %>% unique()
 traffic <- traffic[-all_crashes,]
 
+# Percentage of data that has precipitation
 sum(traffic$precip > 0)/nrow(traffic) * 100
 
 
-sub <- traffic[sample(nrow(traffic),10000),]
-
-# xyplot(startmm~speed | factor(dayofweek)*factor(hour.range)*factor(construction),
-#        data=sub, groups=event, pch=16, alpha=0.3, layout=c(7,1,1))
-
 distro <- traffic
-distro$event <- ifelse(distro$event==T, yes='Precipitable', no='Non-Precipitable')
+distro$event <- ifelse(distro$event==T, yes='Rain', no='Non-Rain')
 distro$event <- factor(distro$event,
-                       levels=c('Precipitable', 'Non-Precipitable'),
+                       levels=c('Rain', 'Non-Rain'),
                        ordered=T)
-
-sub <- distro[sample(nrow(distro), 10000),]
-
-# pdf('./figures/bulkDensity.pdf', width=12, height=8)
-# densityplot(~speed | weekend*hour.range*construction*urban,
-#             data=distro, groups=event, 
-#             layout=c(4,2), xlab='Speed (mph)',
-#             axis=axis.grid, alhpa=0.5,
-#             from=0, to=90, plot.points=F, auto.key=T)
-# dev.off()
 
 
 # split the dataset into the region and construction subsets
@@ -256,268 +242,61 @@ rural_nonConstruction <- distro %>% filter(urban=='Rural' & construction=='Non-C
 myData <- list(indy_construction, indy_nonConstruction, northernIN_construction, northernIN_nonConstruction,
                louisville_construction, louisville_nonConstruction, rural_construction, rural_nonConstruction)
 
-tmp <- traffic %>% 
-  filter(urban=='Indianapolis', construction=='Non-Construction') %>% 
-  select(speed,weekend,hour.range,event, precip) 
 
-tmp <- tmp %>% 
-  group_by(event, hour.range, weekend) %>% 
-  mutate(q01=quantile(speed, probs=0.01))
 
-png(paste0('./figures/splomtest.png'), units='in', res=220, width=8.5, height=6)
-splom(~tmp, pch=16, cex=0.2)
-dev.off()
+# tmp <- traffic %>% 
+#   select(speed, weekend, hour.range, event, construction, urban) %>% 
+#   group_by(weekend, hour.range, event, construction, urban) %>% 
+#   group_modify(~ {
+#     quantile(.x$speed, probs=seq(0,1,0.01)) %>% 
+#     tibble::enframe(name='prob', value='speedQuant')
+#   })
+#   
+# tmp$event <- ifelse(tmp$event, 'Rain', 'Non-Rain')
+# tmp$event <- as.factor(tmp$event)
+# 
+# tmp$prob <- gsub('%', '', tmp$prob)
+# tmp$prob <- as.numeric(tmp$prob)
+# 
+# tmp2 <- traffic %>% 
+#   select(precip, weekend, hour.range, event, construction, urban) %>% 
+#   group_by(weekend, hour.range, event, construction, urban) %>% 
+#   group_modify(~ {
+#     quantile(.x$precip, probs=seq(0,1,0.01)) %>% 
+#       tibble::enframe(name='prob', value='precipQuant')
+#   })
+# 
+# tmp2$event <- ifelse(tmp2$event, 'Rain', 'Non-Rain')
+# tmp2$event <- as.factor(tmp2$event)
+# 
+# tmp2$prob <- gsub('%', '', tmp2$prob)
+# tmp2$prob <- as.numeric(tmp2$prob)
+# 
+# tmp$precipQuant <- tmp2$precipQuant
+# tmp <- tmp %>% ungroup()
+# tmp <- tmp[,c(seq(1:5),7,6,8)]
+# 
+# 
+# png(paste0('./figures/splomtest.png'), units='in', res=220, width=8.5, height=6)
+# splom(~(tmp %>% select(-construction, -urban, -event, -hour.range, -weekend)) | construction, 
+#       data=tmp, groups=urban, pch=16, cex=0.2, alpha=0.3,
+#       as.table=T,
+#       auto.key=list(columns=4))
+# # p <- useOuterStrips(
+# #   xyplot(prob~quantile | hour.range*weekend, data=tmp, groups=urban,
+# #          axis=axis.grid, do.out=T, as.table=T, strip.left=T,
+# #          pch=16, cex=0.3)
+# # )
+# # print(p)
+# dev.off()
 
-tmp <- tmp %>% 
-  mutate(event=ifelse(event, yes='Precipitable', no='Non-Precipitable')) %>%
-  mutate(event=factor(event, ordered=T)) %>% 
-  mutate(categories=paste(event, hour.range, weekend)) %>% 
-  select(speed, categories) %>%
-  mutate(categories=factor(categories))
-  
-tmp <- tmp %>% tibble::rowid_to_column()
-
-tmp2 <- tidyr::spread(tmp, key=unique(categories), value=speed)
-# tmp2 <- reshape2::dcast(tmp, speed~categories, value.var='speed')
-tmp2 <- tmp2[,seq(2,17,1)]
-
-png(paste0('./figures/splomtest.png'), units='in', res=220, width=8.5, height=6)
-splom(~tmp2, pch=16, cex=0.2)
-dev.off()
-
-# alpha <- round((mean(indy_nonConstruction$speed)/sd(indy_nonConstruction$speed))^2, 2) # shape
-# beta <- round(sd(indy_nonConstruction$speed)^2/mean(indy_nonConstruction$speed), 2) # scale
 lattice.blue <- '#0080ff'
 lattice.pink <- '#ff00ff'
+
+# troubleshooting snippet
+# df <- indy_nonConstruction
+# plot_i <- 7
 # 
-# png(paste0('./figures/qq_math/QQ_gamma7.png'), units='in', res=220, width=8.5, height=6)
-# p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
-#                            data=subset(indy_nonConstruction, event=='Precipitable'), as.table=T,
-#                            strip.left=T,
-#                            par.strip.text=list(cex=0.68),
-#                            layout=c(4,2), cex=0.3, 
-#                            xlab='Gamma Distribution',
-#                            ylab='Speed (mph)',
-#                            main=paste0('Traffic Speed Vs Gamma Distribution for ', indy_nonConstruction$urban[1], ' ', 
-#                                        indy_nonConstruction$construction[1]),
-#                            panel=function(x, distribution, f.value,...) {
-#                              # browser()
-#                              alpha <- round((mean(x)/sd(x))^2, 2) # shape
-#                              beta <- round(sd(x)^2/mean(x), 2) # scale
-#                              panel.qqmath(x,
-#                                           f.value=seq(0,1,0.05),
-#                                           # f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
-#                                           distribution=function(x, shape=alpha, scale=beta) {
-#                                             # browser()
-#                                             qgamma(x, shape=shape, scale=scale)
-#                                           },
-#                                           ...)
-#                              panel.abline(0,1, col='black', alpha=0.4)
-#                              panel.text(20,85,labels=paste0('Prec. Shape: ', alpha), cex=0.6)
-#                              panel.text(20,75,labels=paste0('Prec. Scale: ', beta), cex=0.6)
-#                            },
-#                            axis=axis.grid, pch=16, ylim=c(-5,90), xlim=c(-5,90), #alpha=0.5,
-#                            key=list(space='top', 
-#                                     text=list(levels(
-#                                       factor(c('Precipitable', 
-#                                                'Non-Precipitable',
-#                                                'Precipitable\n5/25/50/75/95 Percentiles',
-#                                                'Non-Precipitable\n5/25/50/75/95 Percentiles'),
-#                                              levels=c('Precipitable', 
-#                                                       'Non-Precipitable',
-#                                                       'Precipitable\n5/25/50/75/95 Percentiles',
-#                                                       'Non-Precipitable\n5/25/50/75/95 Percentiles')
-#                                              )
-#                                       )), #list(levels(indy_nonConstruction$event)),
-#                                     cex=0.9, columns=4,
-#                                     points=list(pch=c(16,16,21,21), 
-#                                                 cex=rep(0.7,4), 
-#                                                 col=c(lattice.blue, lattice.pink, '#003366', '#660066'),
-#                                                 fill=c(lattice.blue, lattice.pink, '#4da6ff', '#ff4dff'))
-#                            ),
-#                            scale=list(x=list(at=seq(0,90,10), cex=0.7),
-#                                       y=list(at=seq(0,90,10), cex=0.7)
-#                            )
-# )
-# ) + as.layer(useOuterStrips(
-#   qqmath(~speed | hour.range*weekend,
-#          data=subset(indy_nonConstruction, event=='Non-Precipitable'), as.table=T,
-#          strip.left=T,
-#          par.strip.text=list(cex=0.68),
-#          layout=c(4,2), cex=0.3, 
-#          xlab='Gamma Distribution',
-#          ylab='Speed (mph)',
-#          main=paste0('Traffic Speed Vs Gamma Distribution for ', indy_nonConstruction$urban[1], ' ', 
-#                      indy_nonConstruction$construction[1]),
-#          panel=function(x, distribution, f.value,...) {
-#            # browser()
-#            alpha <- round((mean(x)/sd(x))^2, 2) # shape
-#            beta <- round(sd(x)^2/mean(x), 2) # scale
-#            panel.qqmath(x,
-#                         f.value=seq(0,1,0.05),
-#                         # f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
-#                         distribution=function(x, shape=alpha, scale=beta) {
-#                           # browser()
-#                           qgamma(x, shape=shape, scale=scale)
-#                         },
-#                         ...)
-#            panel.text(25,65,labels=paste0('Non-Prec. Shape: ', alpha), cex=0.6)
-#            panel.text(23,55,labels=paste0('Non-Prec. Scale: ', beta), cex=0.6)
-#          },
-#          pch=16, col=lattice.pink, ylim=c(-5,90), xlim=c(-5,90),
-#          scale=list(x=list(at=seq(0,90,10), cex=0.7),
-#                     y=list(at=seq(0,90,10), cex=0.7)
-#          )
-#   )
-# )) + as.layer(useOuterStrips(
-#   qqmath(~speed | hour.range*weekend,
-#          data=subset(indy_nonConstruction, event=='Precipitable'), as.table=T,
-#          strip.left=T,
-#          par.strip.text=list(cex=0.68),
-#          layout=c(4,2), cex=0.5, 
-#          xlab='Gamma Distribution',
-#          ylab='Speed (mph)',
-#          main=paste0('Traffic Speed Vs Gamma Distribution for ', indy_nonConstruction$urban[1], ' ', 
-#                      indy_nonConstruction$construction[1]),
-#          panel=function(x, distribution, f.value,...) {
-#            # browser()
-#            alpha <- round((mean(x)/sd(x))^2, 2) # shape
-#            beta <- round(sd(x)^2/mean(x), 2) # scale
-#            panel.qqmath(x,
-#                         # f.value=seq(0,1,0.05),
-#                         f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
-#                         distribution=function(x, shape=alpha, scale=beta) {
-#                           # browser()
-#                           qgamma(x, shape=shape, scale=scale)
-#                         },
-#                         ...)
-#          },
-#          pch=21, col='#003366', 
-#          fill='#4da6ff', 
-#          ylim=c(-5,90), xlim=c(-5,90),
-#          scale=list(x=list(at=seq(0,90,10), cex=0.7),
-#                     y=list(at=seq(0,90,10), cex=0.7)
-#          )
-#   )
-# )) + as.layer(useOuterStrips(
-#   qqmath(~speed | hour.range*weekend,
-#          data=subset(indy_nonConstruction, event=='Non-Precipitable'), as.table=T,
-#          strip.left=T,
-#          par.strip.text=list(cex=0.68),
-#          layout=c(4,2), cex=0.5, 
-#          xlab='Gamma Distribution',
-#          ylab='Speed (mph)',
-#          main=paste0('Traffic Speed Vs Gamma Distribution for ', indy_nonConstruction$urban[1], ' ', 
-#                      indy_nonConstruction$construction[1]),
-#          panel=function(x, distribution, f.value,...) {
-#            # browser()
-#            alpha <- round((mean(x)/sd(x))^2, 2) # shape
-#            beta <- round(sd(x)^2/mean(x), 2) # scale
-#            panel.qqmath(x,
-#                         # f.value=seq(0,1,0.05),
-#                         f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
-#                         distribution=function(x, shape=alpha, scale=beta) {
-#                           # browser()
-#                           qgamma(x, shape=shape, scale=scale)
-#                         },
-#                         ...)
-#          },
-#          pch=21, col='#660066', 
-#          fill='#ff4dff', 
-#          ylim=c(-5,90), xlim=c(-5,90),
-#          scale=list(x=list(at=seq(0,90,10), cex=0.7),
-#                     y=list(at=seq(0,90,10), cex=0.7)
-#          )
-#   )
-# )) 
-# 
-# print(p)
-# dev.off()
-# 
-# 
-# 
-# 
-# 
-# 
-# # This is correct sort of. It works! :D Need to make some minor changes still.
-# png(paste0('./figures/qq_math/QQ_gamma8.png'), units='in', res=220, width=8.5, height=6)
-# p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
-#                            data=indy_nonConstruction, groups=event, as.table=T,
-#                            strip.left=T,
-#                            par.strip.text=list(cex=0.68),
-#                            layout=c(4,2), cex=0.3,
-#                            xlab='Gamma Distribution',
-#                            ylab='Speed (mph)',
-#                            main=paste0('Traffic Speed Vs Gamma Distribution for ', indy_nonConstruction$urban[1], ' ',
-#                                        indy_nonConstruction$construction[1]),
-#                            # distribution=function(x, alpha, beta) {
-#                            #   # DO NOT EVALUATE ALPHA AND BETA HERE
-#                            #   # alpha <- round((mean(x)/sd(x))^2, 2) # shape
-#                            #   # beta <- round(sd(x)^2/mean(x), 2) # scale
-#                            #   # browser()
-#                            #   # print(paste0('Alpha: ', alpha, ' Beta: ', beta))
-#                            #   qgamma(x, shape=alpha, scale=beta)
-#                            # },
-#                            # f.value=seq(0,1,0.25),
-#                            # f.value=NULL,
-#                            # fv=seq(0,1,0.25),
-#                            panel=function(x,groups, distribution, f.value,...) {
-#                              # data=x
-#                              # browser()
-#                              alpha <- round((mean(x)/sd(x))^2, 2) # shape
-#                              beta <- round(sd(x)^2/mean(x), 2) # scale
-# 
-#                              panel.qqmath(x, groups=groups,
-#                                           # f.value=seq(0,1,0.05),
-#                                           f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
-#                                           distribution=function(x, shape=alpha, scale=beta) {
-#                                             # browser()
-#                                             qgamma(x, shape=shape, scale=scale)
-#                                           },
-#                                           ...)
-#                              panel.abline(0,1, col='black', alpha=0.4)
-#                              panel.text(15,20,labels=paste0('Shape: ', alpha), cex=0.6)
-#                              panel.text(15,10,labels=paste0('Scale: ', beta), cex=0.6)
-#                            },
-#                            axis=axis.grid, pch=16, ylim=c(-5,90), xlim=c(-5,90), #alpha=0.5,
-#                            key=list(space='top', text=list(levels(indy_nonConstruction$event)),
-#                                     cex=0.9, columns=2,
-#                                     points=list(pch=16, cex=0.7, col=c('#0080ff', '#ff00ff'))
-#                            ),
-#                            scale=list(x=list(at=seq(0,90,10), cex=0.7),
-#                                       y=list(at=seq(0,90,10), cex=0.7)
-#                                       )
-#                            )
-#                     )
-# print(p)
-# dev.off()
-
-
-
-
-
-
-# png('./figures/testqqmath.png')
-# p <- useOuterStrips(qqmath(event~speed | hour.range*weekend,
-#                            data=indy_nonConstruction, groups=event, as.table=T,
-#                            layout=c(4,2), auto.key=T)
-# )
-# print(p)
-# dev.off()
-
-
-# xyplot(startmm~speed | hour.range*weekend,
-#        data=indy_nonConstruction, groups=event, as.table=T,
-#        layout=c(4,2)
-#        )
-
-# using the largest calculated shape parameter
-cutoff.df <- data.frame(shape=c(141.31,953.2,289.52,917.52,236.18,481.34),
-                        scale=c(0.43,0.07,0.22,0.06,0.27,0.14),
-                        row.names=c('indy.nc','ni.c','ni.nc','l.nc','r.c','r.nc'))
-
-qgamma(0.04, shape=cutoff.df$shape[1], scale=cutoff.df$scale[1])
-
 
 plot_i <- 1
 for (df in myData){
@@ -525,22 +304,31 @@ for (df in myData){
     next
   }
   
-  # png(paste0('./figures/bulkECDF/bulkECDF', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
-  # p <- useOuterStrips(ecdfplot(~speed | hour.range*weekend,
-  #                              data=df, groups=event, as.table=T,
-  #                              strip.left=T,
-  #                              par.strip.text=list(cex=.68),
-  #                              layout=c(4,2), xlab='Speed (mph)',
-  #                              main=paste0('Empirical Cumulative Distribution for ', df$urban[1], ' ', df$construction[1]),
-  #                              axis=axis.grid, alhpa=0.5, xlim=c(0,85),
-  #                              from=0, to=90, plot.points=F, auto.key=list(cex=0.73, columns=2),
-  #                              scale=list(x=list(at=seq(0,85,10), cex=0.7, alternating=T),
-  #                                         y=list(cex=0.7))
-  #                              )
-  #                     )
-  # print(p)
-  # dev.off()
-  # 
+  png(paste0('./figures/bulkECDF/bulkECDF', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  p <- useOuterStrips(ecdfplot(~speed | hour.range*weekend,
+                               data=df, groups=event, as.table=T,
+                               strip.left=T,
+                               par.strip.text=list(cex=.68),
+                               layout=c(4,2), xlab='Speed (mph)',
+                               main=paste0('Empirical Cumulative Distribution for ', df$urban[1], ' ', df$construction[1]),
+                               axis=axis.grid, alhpa=0.5, xlim=c(0,85),
+                               from=0, to=90, plot.points=F, 
+                               auto.key=list(cex=0.73, columns=2),
+                               scale=list(x=list(at=seq(0,85,10), cex=0.7, alternating=T),
+                                          y=list(cex=0.7))
+                               )
+                      )
+  print(p)
+  dev.off()
+  
+  #                                 text=list(c('5th Percentile', '25th Percentile',
+  #                                             '50th Percentile', '75th Percentile',
+  #                                             '95th Percentile')),
+  #                                 lines=list(lty=c(6,4,1,2,3), 
+  #                                            lwd=rep(1.5, 5), 
+  #                                            col=c('#b10000','#ca0000','#e40000',
+  #                                                  '#ff1818','#ff4b4b'))
+  
   # png(paste0('./figures/bulkbwplot/bulkbwplot', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
   # p <- useOuterStrips(bwplot(rcat~speed | hour.range*weekend,
   #                            data=df, axis=axis.grid, do.out=T, as.table=T,
@@ -557,10 +345,11 @@ for (df in myData){
   # print(p)
   # dev.off()
   # 
+  
   # df.summary <- df %>% group_by(rcat,weekend,hour.range,construction) %>% tally() #%>% filter(n <= 200)
   # 
   # png(paste0('./figures/sampleSizes/bulkSampleSizes', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
-  # p <- useOuterStrips(dotplot(rcat~n | hour.range*weekend, 
+  # p <- useOuterStrips(dotplot(rcat~n | hour.range*weekend,
   #                             data=df.summary,
   #                             as.table=T,
   #                             axis=axis.grid,
@@ -568,8 +357,8 @@ for (df in myData){
   #                             strip.left=T,
   #                             par.strip.text=list(cex=.68),
   #                             main=paste0('Sample Sizes for ', df$urban[1], ' ', df$construction[1], ' (<= 200)'),
-  #                             xlab='Precipitation Rate (mm/hr)',
-  #                             ylab='Sample Size',
+  #                             ylab='Precipitation Rate (mm/hr)',
+  #                             xlab='Sample Size',
   #                             layout=c(6,2),
   #                             xlim=c(0,200),
   #                             scales=list(x=list(at=seq(0,200,25), cex=.65),
@@ -579,15 +368,52 @@ for (df in myData){
   # print(p)
   # dev.off()
   
+  #### PERCENTILE LINES
   # png(paste0('./figures/QQ_Plots/QQ_Distros', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
   # p <- useOuterStrips(qq(event~speed | hour.range*weekend,
   #                        data=df, as.table=T,
   #                        strip.left=T,
   #                        par.strip.text=list(cex=0.68),
-  #                        layout=c(4,2), cex=0.3, xlab='Precipitable Speeds (mph)',
-  #                        ylab='Non-Precipitable Speeds (mph)',
+  #                        layout=c(4,2), cex=0.3, 
+  #                        panel=function(x, y, ...){
+  #                          panel.qq(x, y, ...)
+  #                          # browser()
+  #                          quants <- c(0.05,0.25,0.50,0.75,0.95)
+  #                          for (j in quants) {
+  #                            xq <- quantile(x, probs = j)
+  #                            color <- switch (as.character(j), 
+  #                                             '0.05' = '#b10000',
+  #                                             '0.25' = '#ca0000',
+  #                                             '0.5' = '#e40000',
+  #                                             '0.75' = '#ff1818',
+  #                                             '0.95' = '#ff4b4b',
+  #                                             )
+  #                            lty <- switch (as.character(j), 
+  #                                           '0.05' = 6,
+  #                                           '0.25' = 4,
+  #                                           '0.5' = 1,
+  #                                           '0.75' = 2,
+  #                                           '0.95' = 3,
+  #                            )
+  #                            # browser()
+  #                            panel.abline(v=xq, col=color, lty=lty)
+  #                          }
+  #                          
+  #                          
+  #                        },
+  #                        xlab='Rain Speeds (mph)',
+  #                        ylab='Non-Rain Speeds (mph)',
   #                        main=paste0('Quantile-Quantile Plot for ', df$urban[1], ' ', df$construction[1]),
   #                        axis= axis.grid, alpha=0.5, pch=16, xlim=c(0,90), ylim=c(0,90),
+  #                        key=list(space='top', columns=3, rows=2, cex=0.9, 
+  #                                 text=list(c('5th Percentile', '25th Percentile',
+  #                                             '50th Percentile', '75th Percentile',
+  #                                             '95th Percentile')),
+  #                                 lines=list(lty=c(6,4,1,2,3), 
+  #                                            lwd=rep(1.5, 5), 
+  #                                            col=c('#b10000','#ca0000','#e40000',
+  #                                                  '#ff1818','#ff4b4b'))
+  #                                 ),
   #                        scale=list(x=list(at=seq(0,90,10), cex=0.7),
   #                              y=list(at=seq(0,90,10), cex=0.7))
   #                        )
@@ -595,70 +421,16 @@ for (df in myData){
   # print(p)
   # dev.off()
   
-  # png(paste0('./figures/qq_math/QQ_normal', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
-  # p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
-  #                            data=df, groups=event, as.table=T,
-  #                            strip.left=T,
-  #                            par.strip.text=list(cex=0.68),
-  #                            f.value=c(0.05,0.25,0.50,0.75,0.95),
-  #                            layout=c(4,2), cex=0.3, xlab='Normal Distribution',
-  #                            ylab='Speed (mph)',
-  #                            main=paste0('Traffic Speed Vs Normal Distribution for ', df$urban[1], ' ', df$construction[1]),
-  #                            axis=axis.grid, pch=16, ylim=c(0,90), #alpha=0.5,
-  #                            xlim=c(-5,5),
-  #                            key=list(space='top', text=list(levels(df$event)),
-  #                                     cex=0.9, columns=2, 
-  #                                     points=list(pch=16, cex=0.7, col=c('#0080ff', '#ff00ff'))
-  #                            ),
-  #                            scale=list(x=list(at=seq(-4,4,2), cex=0.7),
-  #                                       y=list(at=seq(0,90,10), cex=0.7)
-  #                                       )
-  #                            )
-  #                     )
-  # print(p)
-  # dev.off()
-  
-  # df2 <- df
-  # df <- df2 %>% filter(speed <= 60)
-  
-  # alpha <- round((mean(df$speed)/sd(df$speed))^2, 2) # shape
-  # beta <- round(sd(df$speed)^2/mean(df$speed), 2) # scale
-  # 
-  # png(paste0('./figures/qq_math/QQ_gamma', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
-  # p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
-  #                            data=df, groups=event, as.table=T,
-  #                            strip.left=T,
-  #                            par.strip.text=list(cex=0.68),
-  #                            #f.value=seq(0,1,0.05),
-  #                            layout=c(4,2), cex=0.3, xlab=paste0('Gamma Distribution (Shape=', alpha, ' and Scale=', beta, ')'),
-  #                            ylab='Speed (mph)',
-  #                            main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', df$construction[1]),
-  #                            distribution=function(x) {
-  #                              qgamma(x, shape=alpha, scale=beta)
-  #                            },
-  #                            axis=axis.grid, pch=16, ylim=c(0,90), xlim=c(0,90), #alpha=0.5,
-  #                            key=list(space='top', text=list(levels(df$event)),
-  #                                     cex=0.9, columns=2,
-  #                                     points=list(pch=16, cex=0.7, col=c('#0080ff', '#ff00ff'))
-  #                                     ),
-  #                            scale=list(x=list(at=seq(0,90,10), cex=0.7),
-  #                                       y=list(at=seq(0,90,10), cex=0.7)
-  #                                       )
-  #                            )
-  #                     )
-  # print(p)
-  # dev.off()
-
   
   # png(paste0('./figures/qq_math/QQ_gamma', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
   # p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
-  #                            data=subset(df, event=='Precipitable'), as.table=T,
+  #                            data=subset(df, event=='Rain'), as.table=T,
   #                            strip.left=T,
   #                            par.strip.text=list(cex=0.68),
-  #                            layout=c(4,2), cex=0.3, 
+  #                            layout=c(4,2), cex=0.3,
   #                            xlab='Gamma Distribution',
   #                            ylab='Speed (mph)',
-  #                            main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', 
+  #                            main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ',
   #                                        df$construction[1]),
   #                            panel=function(x, distribution, f.value,...) {
   #                              alpha <- round((mean(x)/sd(x))^2, 2) # shape
@@ -670,25 +442,25 @@ for (df in myData){
   #                                           },
   #                                           ...)
   #                              panel.abline(0,1, col='black', alpha=0.4)
-  #                              panel.text(20,85,labels=paste0('Prec. Shape: ', alpha), cex=0.6)
-  #                              panel.text(20,75,labels=paste0('Prec. Scale: ', beta), cex=0.6)
+  #                              panel.text(20,85,labels=paste0('Rain Shape: ', alpha), cex=0.6)
+  #                              panel.text(20,75,labels=paste0('Rain Scale: ', beta), cex=0.6)
   #                            },
   #                            axis=axis.grid, pch=16, ylim=c(-5,90), xlim=c(-5,90), #alpha=0.5,
-  #                            key=list(space='top', 
+  #                            key=list(space='top',
   #                                     text=list(levels(
-  #                                       factor(c('Precipitable', 
-  #                                                'Non-Precipitable',
-  #                                                'Precipitable\n5/25/50/75/95 Percentiles',
-  #                                                'Non-Precipitable\n5/25/50/75/95 Percentiles'),
-  #                                              levels=c('Precipitable', 
-  #                                                       'Non-Precipitable',
-  #                                                       'Precipitable\n5/25/50/75/95 Percentiles',
-  #                                                       'Non-Precipitable\n5/25/50/75/95 Percentiles')
+  #                                       factor(c('Rain',
+  #                                                'Non-Rain',
+  #                                                'Rain\n5/25/50/75/95 Percentiles',
+  #                                                'Non-Rain\n5/25/50/75/95 Percentiles'),
+  #                                              levels=c('Rain',
+  #                                                       'Non-Rain',
+  #                                                       'Rain\n5/25/50/75/95 Percentiles',
+  #                                                       'Non-Rain\n5/25/50/75/95 Percentiles')
   #                                       )
   #                                     )),
   #                                     cex=0.9, columns=4,
-  #                                     points=list(pch=c(16,16,21,21), 
-  #                                                 cex=rep(0.7,4), 
+  #                                     points=list(pch=c(16,16,21,21),
+  #                                                 cex=rep(0.7,4),
   #                                                 col=c(lattice.blue, lattice.pink, '#003366', '#660066'),
   #                                                 fill=c(lattice.blue, lattice.pink, '#4da6ff', '#ff4dff'))
   #                            ),
@@ -698,13 +470,13 @@ for (df in myData){
   # )
   # ) + as.layer(useOuterStrips(
   #   qqmath(~speed | hour.range*weekend,
-  #          data=subset(df, event=='Non-Precipitable'), as.table=T,
+  #          data=subset(df, event=='Non-Rain'), as.table=T,
   #          strip.left=T,
   #          par.strip.text=list(cex=0.68),
-  #          layout=c(4,2), cex=0.3, 
+  #          layout=c(4,2), cex=0.3,
   #          xlab='Gamma Distribution',
   #          ylab='Speed (mph)',
-  #          main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', 
+  #          main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ',
   #                      df$construction[1]),
   #          panel=function(x, distribution, f.value,...) {
   #            alpha <- round((mean(x)/sd(x))^2, 2) # shape
@@ -715,8 +487,8 @@ for (df in myData){
   #                           qgamma(x, shape=shape, scale=scale)
   #                         },
   #                         ...)
-  #            panel.text(25,65,labels=paste0('Non-Prec. Shape: ', alpha), cex=0.6)
-  #            panel.text(23,55,labels=paste0('Non-Prec. Scale: ', beta), cex=0.6)
+  #            panel.text(25,65,labels=paste0('Non-Rain Shape: ', alpha), cex=0.6)
+  #            panel.text(23,55,labels=paste0('Non-Rain Scale: ', beta), cex=0.6)
   #          },
   #          pch=16, col=lattice.pink, ylim=c(-5,90), xlim=c(-5,90),
   #          scale=list(x=list(at=seq(0,90,10), cex=0.7),
@@ -725,13 +497,13 @@ for (df in myData){
   #   )
   # )) + as.layer(useOuterStrips(
   #   qqmath(~speed | hour.range*weekend,
-  #          data=subset(df, event=='Precipitable'), as.table=T,
+  #          data=subset(df, event=='Rain'), as.table=T,
   #          strip.left=T,
   #          par.strip.text=list(cex=0.68),
-  #          layout=c(4,2), cex=0.5, 
+  #          layout=c(4,2), cex=0.5,
   #          xlab='Gamma Distribution',
   #          ylab='Speed (mph)',
-  #          main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', 
+  #          main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ',
   #                      df$construction[1]),
   #          panel=function(x, distribution, f.value,...) {
   #            alpha <- round((mean(x)/sd(x))^2, 2) # shape
@@ -743,8 +515,8 @@ for (df in myData){
   #                         },
   #                         ...)
   #          },
-  #          pch=21, col='#003366', 
-  #          fill='#4da6ff', 
+  #          pch=21, col='#003366',
+  #          fill='#4da6ff',
   #          ylim=c(-5,90), xlim=c(-5,90),
   #          scale=list(x=list(at=seq(0,90,10), cex=0.7),
   #                     y=list(at=seq(0,90,10), cex=0.7)
@@ -752,13 +524,13 @@ for (df in myData){
   #   )
   # )) + as.layer(useOuterStrips(
   #   qqmath(~speed | hour.range*weekend,
-  #          data=subset(df, event=='Non-Precipitable'), as.table=T,
+  #          data=subset(df, event=='Non-Rain'), as.table=T,
   #          strip.left=T,
   #          par.strip.text=list(cex=0.68),
-  #          layout=c(4,2), cex=0.5, 
+  #          layout=c(4,2), cex=0.5,
   #          xlab='Gamma Distribution',
   #          ylab='Speed (mph)',
-  #          main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', 
+  #          main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ',
   #                      df$construction[1]),
   #          panel=function(x, distribution, f.value,...) {
   #            alpha <- round((mean(x)/sd(x))^2, 2) # shape
@@ -770,187 +542,168 @@ for (df in myData){
   #                         },
   #                         ...)
   #          },
-  #          pch=21, col='#660066', 
-  #          fill='#ff4dff', 
+  #          pch=21, col='#660066',
+  #          fill='#ff4dff',
   #          ylim=c(-5,90), xlim=c(-5,90),
   #          scale=list(x=list(at=seq(0,90,10), cex=0.7),
   #                     y=list(at=seq(0,90,10), cex=0.7)
   #          )
   #   )
-  # )) 
+  # ))
   # print(p)
   # dev.off()
   
-  # filter outliers
-  # cutoff <- qgamma(0.05, shape=cutoff.df$shape[plot_i], scale=cutoff.df$scale[plot_i])
-  # print(cutoff)
 
-  cutoff <- 50
-  
-  png(paste0('./figures/qq_math/OutlierRemoved_QQ_gamma', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
-  p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
-                             data=subset(df, event=='Precipitable' & speed >= cutoff), as.table=T,
-                             strip.left=T,
-                             par.strip.text=list(cex=0.68),
-                             layout=c(4,2), cex=0.3, 
-                             xlab='Gamma Distribution',
-                             ylab='Speed (mph)',
-                             main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', 
-                                         df$construction[1]),
-                             panel=function(x, distribution, f.value,...) {
-                               alpha <- round((mean(x)/sd(x))^2, 2) # shape
-                               beta <- round(sd(x)^2/mean(x), 2) # scale
-                               panel.qqmath(x,
-                                            f.value=seq(0.05,1,0.05),
-                                            distribution=function(x, shape=alpha, scale=beta) {
-                                              qgamma(x, shape=shape, scale=scale)
-                                            },
-                                            ...)
-                               panel.abline(0,1, col='black', alpha=0.4)
-                               panel.text(58,79,labels=paste0('Prec. Shape: ', alpha), cex=0.6)
-                               panel.text(57,77,labels=paste0('Prec. Scale: ', beta), cex=0.6)
-                             },
-                             axis=axis.grid, pch=16,
-                             ylim=c(50,80), xlim=c(50,80),
-                             key=list(space='top', 
-                                      text=list(levels(
-                                        factor(c('Precipitable', 
-                                                 'Non-Precipitable',
-                                                 'Precipitable\n5/25/50/75/95 Percentiles',
-                                                 'Non-Precipitable\n5/25/50/75/95 Percentiles'),
-                                               levels=c('Precipitable', 
-                                                        'Non-Precipitable',
-                                                        'Precipitable\n5/25/50/75/95 Percentiles',
-                                                        'Non-Precipitable\n5/25/50/75/95 Percentiles')
-                                        )
-                                      )),
-                                      cex=0.9, columns=4,
-                                      points=list(pch=c(16,16,21,21), 
-                                                  cex=rep(0.7,4), 
-                                                  col=c(lattice.blue, lattice.pink, '#003366', '#660066'),
-                                                  fill=c(lattice.blue, lattice.pink, '#4da6ff', '#ff4dff'))
-                             ),
-                             scale=list(x=list(at=seq(0,90,10), cex=0.7),
-                                        y=list(at=seq(0,90,10), cex=0.7)
-                             )
-  )
-  ) + as.layer(useOuterStrips(
-    qqmath(~speed | hour.range*weekend,
-           data=subset(df, event=='Non-Precipitable' & speed >= cutoff), as.table=T,
-           strip.left=T,
-           par.strip.text=list(cex=0.68),
-           layout=c(4,2), cex=0.3, 
-           xlab='Gamma Distribution',
-           ylab='Speed (mph)',
-           main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', 
-                       df$construction[1]),
-           panel=function(x, distribution, f.value,...) {
-             alpha <- round((mean(x)/sd(x))^2, 2) # shape
-             beta <- round(sd(x)^2/mean(x), 2) # scale
-             panel.qqmath(x,
-                          f.value=seq(0.05,1,0.05),
-                          distribution=function(x, shape=alpha, scale=beta) {
-                            qgamma(x, shape=shape, scale=scale)
-                          },
-                          ...)
-             panel.text(59.5,75,labels=paste0('Non-Prec. Shape: ', alpha), cex=0.6)
-             panel.text(59,73,labels=paste0('Non-Prec. Scale: ', beta), cex=0.6)
-           },
-           pch=16, col=lattice.pink,
-           ylim=c(50,80), xlim=c(50,80),
-           scale=list(x=list(at=seq(0,90,10), cex=0.7),
-                      y=list(at=seq(0,90,10), cex=0.7)
-           )
-    )
-  )) + as.layer(useOuterStrips(
-    qqmath(~speed | hour.range*weekend,
-           data=subset(df, event=='Precipitable' & speed >= cutoff), as.table=T,
-           strip.left=T,
-           par.strip.text=list(cex=0.68),
-           layout=c(4,2), cex=0.5, 
-           xlab='Gamma Distribution',
-           ylab='Speed (mph)',
-           main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', 
-                       df$construction[1]),
-           panel=function(x, distribution, f.value,...) {
-             alpha <- round((mean(x)/sd(x))^2, 2) # shape
-             beta <- round(sd(x)^2/mean(x), 2) # scale
-             panel.qqmath(x,
-                          f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
-                          distribution=function(x, shape=alpha, scale=beta) {
-                            qgamma(x, shape=shape, scale=scale)
-                          },
-                          ...)
-           },
-           pch=21, col='#003366', 
-           fill='#4da6ff', 
-           ylim=c(50,80), xlim=c(50,80),
-           scale=list(x=list(at=seq(0,90,10), cex=0.7),
-                      y=list(at=seq(0,90,10), cex=0.7)
-           )
-    )
-  )) + as.layer(useOuterStrips(
-    qqmath(~speed | hour.range*weekend,
-           data=subset(df, event=='Non-Precipitable' & speed >= cutoff), as.table=T,
-           strip.left=T,
-           par.strip.text=list(cex=0.68),
-           layout=c(4,2), cex=0.5, 
-           xlab='Gamma Distribution',
-           ylab='Speed (mph)',
-           main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ', 
-                       df$construction[1]),
-           panel=function(x, distribution, f.value,...) {
-             alpha <- round((mean(x)/sd(x))^2, 2) # shape
-             beta <- round(sd(x)^2/mean(x), 2) # scale
-             panel.qqmath(x,
-                          f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
-                          distribution=function(x, shape=alpha, scale=beta) {
-                            qgamma(x, shape=shape, scale=scale)
-                          },
-                          ...)
-           },
-           pch=21, col='#660066', 
-           fill='#ff4dff', 
-           ylim=c(50,80), xlim=c(50,80),
-           scale=list(x=list(at=seq(0,90,10), cex=0.7),
-                      y=list(at=seq(0,90,10), cex=0.7)
-           )
-    )
-  )) 
-  print(p)
-  dev.off() 
+
+  # cutoff <- 50
+  # png(paste0('./figures/qq_math/OutlierRemoved_QQ_gamma', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  # p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
+  #                            data=subset(df, event=='Rain' & speed >= cutoff), as.table=T,
+  #                            strip.left=T,
+  #                            par.strip.text=list(cex=0.68),
+  #                            layout=c(4,2), cex=0.3,
+  #                            xlab='Gamma Distribution',
+  #                            ylab='Speed (mph)',
+  #                            main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ',
+  #                                        df$construction[1]),
+  #                            panel=function(x, distribution, f.value,...) {
+  #                              alpha <- round((mean(x)/sd(x))^2, 2) # shape
+  #                              beta <- round(sd(x)^2/mean(x), 2) # scale
+  #                              panel.qqmath(x,
+  #                                           f.value=seq(0.05,1,0.05),
+  #                                           distribution=function(x, shape=alpha, scale=beta) {
+  #                                             qgamma(x, shape=shape, scale=scale)
+  #                                           },
+  #                                           ...)
+  #                              panel.abline(0,1, col='black', alpha=0.4)
+  #                              panel.text(58,79,labels=paste0('Prec. Shape: ', alpha), cex=0.6)
+  #                              panel.text(57,77,labels=paste0('Prec. Scale: ', beta), cex=0.6)
+  #                            },
+  #                            axis=axis.grid, pch=16,
+  #                            ylim=c(50,80), xlim=c(50,80),
+  #                            key=list(space='top',
+  #                                     text=list(levels(
+  #                                       factor(c('Rain',
+  #                                                'Non-Rain',
+  #                                                'Rain\n5/25/50/75/95 Percentiles',
+  #                                                'Non-Rain\n5/25/50/75/95 Percentiles'),
+  #                                              levels=c('Rain',
+  #                                                       'Non-Rain',
+  #                                                       'Rain\n5/25/50/75/95 Percentiles',
+  #                                                       'Non-Rain\n5/25/50/75/95 Percentiles')
+  #                                       )
+  #                                     )),
+  #                                     cex=0.9, columns=4,
+  #                                     points=list(pch=c(16,16,21,21),
+  #                                                 cex=rep(0.7,4),
+  #                                                 col=c(lattice.blue, lattice.pink, '#003366', '#660066'),
+  #                                                 fill=c(lattice.blue, lattice.pink, '#4da6ff', '#ff4dff'))
+  #                            ),
+  #                            scale=list(x=list(at=seq(0,90,10), cex=0.7),
+  #                                       y=list(at=seq(0,90,10), cex=0.7)
+  #                            )
+  # )
+  # ) + as.layer(useOuterStrips(
+  #   qqmath(~speed | hour.range*weekend,
+  #          data=subset(df, event=='Non-Rain' & speed >= cutoff), as.table=T,
+  #          strip.left=T,
+  #          par.strip.text=list(cex=0.68),
+  #          layout=c(4,2), cex=0.3,
+  #          xlab='Gamma Distribution',
+  #          ylab='Speed (mph)',
+  #          main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ',
+  #                      df$construction[1]),
+  #          panel=function(x, distribution, f.value,...) {
+  #            alpha <- round((mean(x)/sd(x))^2, 2) # shape
+  #            beta <- round(sd(x)^2/mean(x), 2) # scale
+  #            panel.qqmath(x,
+  #                         f.value=seq(0.05,1,0.05),
+  #                         distribution=function(x, shape=alpha, scale=beta) {
+  #                           qgamma(x, shape=shape, scale=scale)
+  #                         },
+  #                         ...)
+  #            panel.text(59.5,75,labels=paste0('Non-Prec. Shape: ', alpha), cex=0.6)
+  #            panel.text(59,73,labels=paste0('Non-Prec. Scale: ', beta), cex=0.6)
+  #          },
+  #          pch=16, col=lattice.pink,
+  #          ylim=c(50,80), xlim=c(50,80),
+  #          scale=list(x=list(at=seq(0,90,10), cex=0.7),
+  #                     y=list(at=seq(0,90,10), cex=0.7)
+  #          )
+  #   )
+  # )) + as.layer(useOuterStrips(
+  #   qqmath(~speed | hour.range*weekend,
+  #          data=subset(df, event=='Rain' & speed >= cutoff), as.table=T,
+  #          strip.left=T,
+  #          par.strip.text=list(cex=0.68),
+  #          layout=c(4,2), cex=0.5,
+  #          xlab='Gamma Distribution',
+  #          ylab='Speed (mph)',
+  #          main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ',
+  #                      df$construction[1]),
+  #          panel=function(x, distribution, f.value,...) {
+  #            alpha <- round((mean(x)/sd(x))^2, 2) # shape
+  #            beta <- round(sd(x)^2/mean(x), 2) # scale
+  #            panel.qqmath(x,
+  #                         f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
+  #                         distribution=function(x, shape=alpha, scale=beta) {
+  #                           qgamma(x, shape=shape, scale=scale)
+  #                         },
+  #                         ...)
+  #          },
+  #          pch=21, col='#003366',
+  #          fill='#4da6ff',
+  #          ylim=c(50,80), xlim=c(50,80),
+  #          scale=list(x=list(at=seq(0,90,10), cex=0.7),
+  #                     y=list(at=seq(0,90,10), cex=0.7)
+  #          )
+  #   )
+  # )) + as.layer(useOuterStrips(
+  #   qqmath(~speed | hour.range*weekend,
+  #          data=subset(df, event=='Non-Rain' & speed >= cutoff), as.table=T,
+  #          strip.left=T,
+  #          par.strip.text=list(cex=0.68),
+  #          layout=c(4,2), cex=0.5,
+  #          xlab='Gamma Distribution',
+  #          ylab='Speed (mph)',
+  #          main=paste0('Traffic Speed Vs Gamma Distribution for ', df$urban[1], ' ',
+  #                      df$construction[1]),
+  #          panel=function(x, distribution, f.value,...) {
+  #            alpha <- round((mean(x)/sd(x))^2, 2) # shape
+  #            beta <- round(sd(x)^2/mean(x), 2) # scale
+  #            panel.qqmath(x,
+  #                         f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
+  #                         distribution=function(x, shape=alpha, scale=beta) {
+  #                           qgamma(x, shape=shape, scale=scale)
+  #                         },
+  #                         ...)
+  #          },
+  #          pch=21, col='#660066',
+  #          fill='#ff4dff',
+  #          ylim=c(50,80), xlim=c(50,80),
+  #          scale=list(x=list(at=seq(0,90,10), cex=0.7),
+  #                     y=list(at=seq(0,90,10), cex=0.7)
+  #          )
+  #   )
+  # ))
+  # print(p)
+  # dev.off()
   
   plot_i <- plot_i + 1
 }
 
 
-for (df in myData){
-  if (dim(df)[1] == 0){
-    next
-  }
-  
-  for (i in c('Morning','Morning Rush', 'Afternoon Rush', 'Evening')) {
-    
-    tmp.precip.weekday <- df %>% filter(event == 'Precipitable' & hour.range==i & weekend=='Weekday')
-    tmp.nonPrecip.weekday <- df %>% filter(event == 'Non-Precipitable' & hour.range==i & weekend=='Weekday')
-    
-    out <- ks.test(tmp.precip.weekday$speed, tmp.nonPrecip.weekday$speed, alternative='greater')
-    print(paste0('Kolmogorov Smirnoff Test for ', df$urban[1], ' ', df$construction[1], 
-                 ' hour range ', i, ' on a weekday yields: '))
-    print(out)
-    
-    tmp.precip.weekend <- df %>% filter(event == 'Precipitable' & hour.range==i & weekend=='Weekend')
-    tmp.nonPrecip.weekend <- df %>% filter(event == 'Non-Precipitable' & hour.range==i & weekend=='Weekend')
-    
-    out <- ks.test(tmp.precip.weekend$speed, tmp.nonPrecip.weekend$speed, alternative='greater')
-    print(paste0('Kolmogorov Smirnoff Test for ', df$urban[1], ' ', df$construction[1], 
-                 ' hour range ', i, ' on a weekend yields: '))
-    print(out)
-    
-  }
-}
+# summarize the data
+traffic.summary <- traffic %>% 
+  group_by(urban, hour.range, weekend, event, construction) %>% 
+  transmute(mean=mean(speed),
+         min=min(speed),
+         max=max(speed),
+         std=sd(speed),
+         var=var(speed)) %>% 
+  unique()
 
-
+write.csv(x=traffic.summary, file='./data/processed/summaryStats.csv')
 
 
 
@@ -1008,143 +761,13 @@ dev.off()
 # recalculate the above figures as % reductions
 
 
+# Calculate median percent reduction figures.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# pull out just the Indy region
-indy <- sub %>% filter(urban=='Rural')
-
-xyplot(startmm~speed | factor(dayofweek)*factor(hours)*factor(construction),
-       data=indy, groups=event, pch=16, alpha=0.3, layout=c(5,1,1))
-
-
-
-pdf('./figures/positionVspeed_hours.pdf', width=10, height=8)
-
-xyplot(startmm ~ speed | factor(dayofweek)*factor(hours)*factor(construction), 
-       data=sub, ylab='Road Position', xlab='Speed (mph)', par.strip.text=list(cex=1),
-       par.settings=list(layout.heights=list(strip=1)), groups=event,
-       pch=16, alpha=0.2, grid=T, layout=c(3,2,1), cex=.5)
-
-xyplot(speed ~ startmm | factor(dayofweek)*factor(hours)*factor(construction), 
-       data=traffic, ylab='Road Position', xlab='Speed (mph)', par.strip.text=list(cex=1),
-       par.settings=list(layout.heights=list(strip=1)), groups=event,
-       pch=16, alpha=0.2, grid=T, layout=c(2,1), cex=.5)
-
-dev.off()
-
-hexbinplot(startmm ~ speed | factor(dayofweek)*factor(event)*factor(construction),
-           data=sub, ylab='Road Position', xlab='Speed (mph)', bins=50,
-           aspect=1, layout=c(7,2))
-
-
-levelplot(speed~as.integer(tstamp)*startmm, data=sub)
-colorRampPalette()
-
-levelplot(speed~tstamp*startmm | factor(dayofweek)*factor(construction), data=sub, 
-          aspect=1, 
-          col.regions=colorRampPalette(c("pink", "red", "orange","blue", "green"))
-)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# clustering to discriminate between standard speeds and reduced speeds.
-
-# tmp <- kmeans(traffic$speed, 2)
-# tmp$tot.withinss
-# traffic$cluster <- tmp$cluster
-# pdf('./figures/precipVspeed_clust.pdf')
-# xyplot(speed ~ precip | factor(position), data=traffic, groups=cluster, 
-#        pch=16, layout=c(3,3))
-# dev.off()
-
-
-# rather than use k means to determine thresholds, use 55 as a threshold
-# this will be roughly 10% less than 65, a typical speed limit for most of I-65
-# 55 is the lowest postest speed limit on I-65
-
-traffic.slow <- traffic %>% filter(speed <= 55)
-traffic.fast <- traffic %>% filter(speed > 55)
-
-nrow(traffic.fast)/nrow(traffic) * 100
-nrow(traffic.slow)/nrow(traffic) * 100
-
-# slow speeds make up a very small percentage of the dataset
-
-# tmp <- traffic.slow %>% filter(position==250)
-# xyplot(speed~precip | factor(position), data=traffic.slow,
-#        layout=c(1,1,1))
-
-
-
-
-png('./figures/precipVspeed_hourOfDay.png')
-xyplot(precip~speed | factor(hours), data=traffic)
-dev.off()
-
-pdf('./figures/precipVspeed_hour_density.pdf', width=30)
-densityplot(~speed | factor(hours), data=traffic, plot.points=F, groups=,
-            layout=c(24,1))
-dev.off()
-
-
-# pdf('./figures/precipVspeed_dayofweek.pdf')
-# xyplot(precip~speed | factor(dayofweek), data=traffic, pch=16, col='deepskyblue3', alpha=0.5,
-#        layout=c(7,1), par.strip.text=list(cex=.8))
-# dev.off()
-
-
-
-
-
-
-
-
-
-
-
-tmp <- traffic
-
-
-#tmp$construction <- as.factor(tmp$construction)
-#levels(tmp$construction) <- c('Non-Construction','Construction')
-
-
-
-sub <- tmp[sample(nrow(tmp),10000),]
-
-
-
-# levelplot(speed~position*hours | factor(dayofweek), data=tmp)
-
-traffic.summary.r <- tmp %>% group_by(hour.range,weekend,urban,construction,rcat) %>% 
+traffic.summary.r <- traffic %>% group_by(hour.range,weekend,urban,construction,rcat) %>% 
   summarise(min.r=min(speed), max.r=max(speed), median.r=median(speed), 
             avg.r=mean(speed), std.r=sd(speed), n.r=n())
 
-traffic.baseline <- tmp %>% filter(precip == 0) %>% 
+traffic.baseline <- traffic %>% filter(precip == 0) %>% 
   group_by(hour.range,weekend,urban,construction,rcat) %>% 
   summarise(min.b=min(speed), max.b=max(speed), median.b=median(speed), 
             avg.b=mean(speed), std.b=sd(speed), n.b=n())
@@ -1222,7 +845,7 @@ p <- useOuterStrips(  xyplot(rcat~raw.reduction | hour.range*weekend,
                              groups=urban, alpha=0.7, cex=0.7, pch=c(17,18), 
                              col=c(color3, color4), jitter=T,
                              axis=axis.grid, 
-                             ylab='Precipitation Intensity (mm/hr)',
+                             ylab='Precipitation Rate (mm/hr)',
                              xlab='Speed (mph)', 
                              main='Median Speed Reduction for Construction (Sample Sizes > 100)',
                              par.strip.text=list(cex=0.68),
@@ -1252,7 +875,7 @@ p <- useOuterStrips(  xyplot(rcat~raw.reduction | hour.range*weekend,
                              groups=urban, alpha=0.7, cex=0.7, pch=c(15,16,17,18), 
                              col=c(color1, color2, color3, color4), jitter=T,
                              axis=axis.grid, 
-                             ylab='Precipitation Intensity (mm/hr)',
+                             ylab='Precipitation Rate (mm/hr)',
                              xlab='Speed (mph)', 
                              main='Median Speed Reduction for Non-Construction Zones (Sample Sizes > 100)',
                              par.strip.text=list(cex=0.68),

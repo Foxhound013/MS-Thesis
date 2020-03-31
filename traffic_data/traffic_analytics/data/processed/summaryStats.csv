@@ -1,0 +1,97 @@
+"","urban","hour.range","weekend","event","construction","mean","min","max","std","var"
+"1","Louisville","Evening","Weekday",FALSE,"Non-Construction",61.0533724866064,33,84,3.5268970663455,12.4390029165965
+"2","Louisville","Morning","Weekday",FALSE,"Non-Construction",59.6518668522972,6,80,2.72772619574598,7.44049019895882
+"3","Louisville","Morning","Weekday",TRUE,"Non-Construction",59.6927792915531,5,79,3.52623024654573,12.434299751654
+"4","Louisville","Morning Rush","Weekday",FALSE,"Non-Construction",60.5600531336795,23,81,3.1947537840919,10.2064517409695
+"5","Louisville","Morning Rush","Weekday",TRUE,"Non-Construction",60.4164504806959,34,78,3.13002969198989,9.79708587273835
+"6","Louisville","Afternoon Rush","Weekday",FALSE,"Non-Construction",61.2176783917131,25,81,3.62572735688592,13.1458988664709
+"7","Louisville","Afternoon Rush","Weekday",TRUE,"Non-Construction",60.0646625766871,21,83,4.24918582460883,18.0555801720566
+"8","Louisville","Evening","Weekend",FALSE,"Non-Construction",61.7676025682882,27,83,4.72966433130146,22.3697246867853
+"9","Louisville","Evening","Weekend",TRUE,"Non-Construction",61.6500811249324,28,83,3.62191819199703,13.118291389519
+"10","Louisville","Morning","Weekend",FALSE,"Non-Construction",59.9689193212266,8,79,3.39589184911084,11.5320814508574
+"11","Louisville","Morning Rush","Weekend",FALSE,"Non-Construction",61.2115488662633,9,81,3.92868753547682,15.4345857514109
+"12","Louisville","Afternoon Rush","Weekend",FALSE,"Non-Construction",62.612143867448,11,83,4.53076286123935,20.5278121047858
+"13","Louisville","Morning","Weekend",TRUE,"Non-Construction",59.913881748072,51,73,2.71210406599064,7.35550846476294
+"14","Louisville","Morning Rush","Weekend",TRUE,"Non-Construction",59.1217391304348,56,66,1.95182247757876,3.8096109839817
+"15","Louisville","Afternoon Rush","Weekend",TRUE,"Non-Construction",59.7294429708223,51,75,3.87015006787217,14.978061547851
+"16","Louisville","Evening","Weekday",TRUE,"Non-Construction",60.8661290322581,49,80,3.83086442997667,14.6755222808605
+"17","Rural","Evening","Weekday",FALSE,"Non-Construction",67.5741155830178,0,84,6.01154916817181,36.1387234013472
+"18","Rural","Morning","Weekday",FALSE,"Non-Construction",66.6667757944033,0,84,3.46289726558864,11.9916574720213
+"19","Rural","Morning","Weekday",TRUE,"Non-Construction",66.610311432163,12,83,3.03609936237391,9.21789933820726
+"20","Rural","Morning Rush","Weekday",FALSE,"Non-Construction",67.4701107741352,0,84,5.68010654138951,32.2636103215359
+"21","Rural","Morning Rush","Weekday",TRUE,"Non-Construction",67.1168735406169,5,83,4.40358028019354,19.3915192841094
+"22","Rural","Afternoon Rush","Weekday",FALSE,"Non-Construction",67.365675457193,0,84,8.01431120471893,64.2291840860834
+"23","Rural","Afternoon Rush","Weekday",TRUE,"Non-Construction",66.5456527664214,2,83,6.6895698835299,44.7503452266302
+"24","Rural","Evening","Weekend",FALSE,"Non-Construction",68.4386352910694,3,84,4.84335417581136,23.4580796723493
+"25","Rural","Evening","Weekend",TRUE,"Non-Construction",67.9309846953509,6,83,4.99879517050181,24.9879531566322
+"26","Rural","Morning","Weekend",FALSE,"Non-Construction",66.6017927103984,4,84,3.53040728925048,12.4637756279929
+"27","Rural","Morning Rush","Weekend",FALSE,"Non-Construction",68.0360931018963,5,84,4.61313696125965,21.2810326233399
+"28","Rural","Afternoon Rush","Weekend",FALSE,"Non-Construction",69.3249982677123,0,84,5.5078046147036,30.3359116737503
+"29","Rural","Morning","Weekend",TRUE,"Non-Construction",65.5200568701127,10,81,3.79961976737338,14.4371103766145
+"30","Rural","Morning Rush","Weekend",TRUE,"Non-Construction",67.2186487334053,8,83,4.80254399793618,23.0644288521128
+"31","Rural","Afternoon Rush","Weekend",TRUE,"Non-Construction",67.6259893366891,6,84,5.16912895407722,26.7198941438794
+"32","Rural","Evening","Weekday",TRUE,"Non-Construction",66.8782626611211,3,83,5.4000403181278,29.1604354374057
+"33","Rural","Evening","Weekday",FALSE,"Construction",65.1673835245722,0,84,6.64628205797989,44.1730651942255
+"34","Rural","Morning","Weekday",FALSE,"Construction",64.3567487262361,0,83,5.39976235024766,29.1574334391521
+"35","Rural","Morning","Weekday",TRUE,"Construction",64.2304320745577,6,83,4.2636187144273,18.1784445420147
+"36","Rural","Morning Rush","Weekday",FALSE,"Construction",65.1960794086219,0,84,7.20666143335259,51.9359690149716
+"37","Rural","Morning Rush","Weekday",TRUE,"Construction",64.4971531545348,7,83,4.93077792806243,24.3125709758676
+"38","Rural","Afternoon Rush","Weekday",FALSE,"Construction",65.2588202440196,0,84,8.11887070562225,65.9160615346111
+"39","Rural","Afternoon Rush","Weekday",TRUE,"Construction",64.5888451203127,1,83,7.02328259166515,49.3264983623867
+"40","Rural","Evening","Weekend",FALSE,"Construction",66.3862137497104,2,84,5.65223128972731,31.9477185525724
+"41","Rural","Evening","Weekend",TRUE,"Construction",64.734122421373,0,83,11.4545905986126,131.207645781823
+"42","Rural","Morning","Weekend",FALSE,"Construction",64.4955514667083,4,84,4.4256070132467,19.5859974356983
+"43","Rural","Morning Rush","Weekend",FALSE,"Construction",66.4570284399929,7,84,5.03050026233105,25.3059328893128
+"44","Rural","Afternoon Rush","Weekend",FALSE,"Construction",67.8188358730952,4,84,5.92963196767296,35.1605352720491
+"45","Rural","Morning","Weekend",TRUE,"Construction",63.5083500334001,10,81,4.13243723431403,17.077037495545
+"46","Rural","Morning Rush","Weekend",TRUE,"Construction",65.8685803216324,11,83,4.49432694815912,20.1989747169493
+"47","Rural","Afternoon Rush","Weekend",TRUE,"Construction",67.3287098781897,27,83,4.95419610060754,24.544059003275
+"48","Rural","Evening","Weekday",TRUE,"Construction",65.0308116980006,7,83,5.09013982489799,25.9095234370125
+"49","Indianapolis","Evening","Weekday",FALSE,"Non-Construction",61.8486863156398,0,84,7.40700151393018,54.8636714273639
+"50","Indianapolis","Evening","Weekday",TRUE,"Non-Construction",60.4723522527794,16,83,6.60435853734662,43.6175516898232
+"51","Indianapolis","Morning","Weekday",FALSE,"Non-Construction",60.2430912188323,4,84,5.0879541410005,25.8872773409242
+"52","Indianapolis","Morning","Weekday",TRUE,"Non-Construction",60.3838263121203,30,82,5.07971057259218,25.8034595013047
+"53","Indianapolis","Morning Rush","Weekday",FALSE,"Non-Construction",61.1030803290154,3,84,7.05254792169718,49.7384321878352
+"54","Indianapolis","Afternoon Rush","Weekday",FALSE,"Non-Construction",61.2420911327353,0,84,8.09878633480181,65.5903400967725
+"55","Indianapolis","Evening","Weekend",FALSE,"Non-Construction",62.4432875151343,6,83,6.08527872742897,37.0306171904996
+"56","Indianapolis","Morning","Weekend",FALSE,"Non-Construction",60.427226067712,6,83,5.55989678526537,30.9124522628042
+"57","Indianapolis","Morning Rush","Weekend",FALSE,"Non-Construction",62.2073174157303,5,84,5.63614757288052,31.7661594632869
+"58","Indianapolis","Afternoon Rush","Weekend",FALSE,"Non-Construction",63.5012266545656,12,83,6.09751753738732,37.179720118746
+"59","Indianapolis","Morning","Weekend",TRUE,"Non-Construction",58.5401691331924,11,68,7.15208731680736,51.1523529872366
+"60","Indianapolis","Afternoon Rush","Weekday",TRUE,"Non-Construction",58.2841479145765,6,81,10.8652884871719,118.05449390947
+"61","Indianapolis","Evening","Weekend",TRUE,"Non-Construction",61.0449559431757,37,79,5.52523252243884,30.5281944270158
+"62","Indianapolis","Afternoon Rush","Weekend",TRUE,"Non-Construction",61.0512118018967,14,83,6.57653620378529,43.2508284396986
+"63","Indianapolis","Morning Rush","Weekend",TRUE,"Non-Construction",60.7857491459248,3,83,7.41774321171173,55.0229143548955
+"64","Indianapolis","Morning Rush","Weekday",TRUE,"Non-Construction",59.5263337601366,17,83,7.23023540996948,52.2763040835765
+"65","Northern Indiana","Evening","Weekday",FALSE,"Construction",65.6182319806874,25,83,3.99245060428498,15.9396618276555
+"66","Northern Indiana","Evening","Weekday",TRUE,"Construction",64.6939501779359,45,81,3.62646950040973,13.151281037402
+"67","Northern Indiana","Morning","Weekday",FALSE,"Construction",64.3352584123991,9,81,2.90374535505072,8.43173708697865
+"68","Northern Indiana","Morning Rush","Weekday",FALSE,"Construction",65.8335046248715,6,83,4.02479821973803,16.1990007096064
+"69","Northern Indiana","Afternoon Rush","Weekday",FALSE,"Construction",64.9182953625535,47,82,3.3616732800052,11.3008472415009
+"70","Northern Indiana","Evening","Weekend",FALSE,"Construction",66.2038585209003,29,83,4.64652100816701,21.5901574793374
+"71","Northern Indiana","Morning","Weekend",FALSE,"Construction",64.1080047086521,21,83,3.0559830349034,9.33903230961738
+"72","Northern Indiana","Morning Rush","Weekend",FALSE,"Construction",65.9548796309644,50,82,3.43960239942956,11.8308646661616
+"73","Northern Indiana","Afternoon Rush","Weekend",FALSE,"Construction",67.0725838791605,52,83,4.34648402614356,18.8919233895211
+"74","Northern Indiana","Evening","Weekend",TRUE,"Construction",66.1766784452297,40,80,4.29132643190565,18.415482545172
+"75","Northern Indiana","Morning","Weekend",TRUE,"Construction",63.3016431924883,54,71,2.05032962857617,4.20385158581731
+"76","Northern Indiana","Morning Rush","Weekday",TRUE,"Construction",64.5710594315245,51,78,3.49988767201679,12.2492137167351
+"77","Northern Indiana","Afternoon Rush","Weekday",TRUE,"Construction",64.1877444589309,41,79,3.99999425927734,15.9999540742517
+"78","Northern Indiana","Morning Rush","Weekend",TRUE,"Construction",64.9217625899281,38,79,3.19261543097825,10.1927932901204
+"79","Northern Indiana","Afternoon Rush","Weekend",TRUE,"Construction",66.7479806138934,52,81,5.04970199636085,25.4994902520507
+"80","Northern Indiana","Morning","Weekday",TRUE,"Construction",64.6085932901707,32,78,2.89863240345231,8.40206981034373
+"81","Northern Indiana","Evening","Weekday",FALSE,"Non-Construction",65.1729463716853,4,84,5.93497545885454,35.2239336972056
+"82","Northern Indiana","Evening","Weekday",TRUE,"Non-Construction",64.0994228751312,32,84,5.31227219044059,28.2202358253285
+"83","Northern Indiana","Morning","Weekday",FALSE,"Non-Construction",63.354831922951,6,84,4.75585527924459,22.6181594371187
+"84","Northern Indiana","Morning Rush","Weekday",FALSE,"Non-Construction",65.3456986899563,6,83,6.62369609149513,43.8733499124878
+"85","Northern Indiana","Afternoon Rush","Weekday",FALSE,"Non-Construction",63.8822150296693,4,83,7.31195906813636,53.4647454141016
+"86","Northern Indiana","Evening","Weekend",FALSE,"Non-Construction",65.8127,6,83,7.15563965477199,51.2031788689455
+"87","Northern Indiana","Morning","Weekend",FALSE,"Non-Construction",63.1605276983247,9,84,4.6426947608809,21.554614642711
+"88","Northern Indiana","Morning Rush","Weekend",FALSE,"Non-Construction",65.632100690577,4,84,4.86109852531765,23.6302788728454
+"89","Northern Indiana","Afternoon Rush","Weekend",FALSE,"Non-Construction",67.133373780272,7,83,6.14649159130416,37.7793588819727
+"90","Northern Indiana","Evening","Weekend",TRUE,"Non-Construction",64.7446540880503,54,83,5.07490054993998,25.7546155917811
+"91","Northern Indiana","Morning","Weekend",TRUE,"Non-Construction",62.8037589828635,44,82,3.69100605326533,13.6235256852413
+"92","Northern Indiana","Morning Rush","Weekday",TRUE,"Non-Construction",64.2276785714286,15,83,6.19291900860781,38.3522458471759
+"93","Northern Indiana","Morning","Weekday",TRUE,"Non-Construction",63.9806401652039,38,83,4.68020834145102,21.9043501193877
+"94","Northern Indiana","Afternoon Rush","Weekday",TRUE,"Non-Construction",63.0699947173798,19,81,6.7153966784927,45.0965525495107
+"95","Northern Indiana","Morning Rush","Weekend",TRUE,"Non-Construction",64.7481243301179,42,83,4.6695455944744,21.8046560588753
+"96","Northern Indiana","Afternoon Rush","Weekend",TRUE,"Non-Construction",66.5968916949976,6,84,6.99734157859714,48.9627891675643

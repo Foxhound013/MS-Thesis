@@ -707,60 +707,6 @@ write.csv(x=traffic.summary, file='./data/processed/summaryStats.csv')
 
 
 
-# png('./figures/bulkECDF/bulkECDF%02d.png', units='in', res=220, width=8.5, height=6)
-# ecdfplot(~speed | weekend*hour.range*construction*urban,
-#          data=distro, groups=event, as.table=T,
-#          par.strip.text=list(cex=.68),
-#          layout=c(4,2), xlab='Speed (mph)',
-#          axis=axis.grid, alhpa=0.5, xlim=c(0,85),
-#          from=0, to=90, plot.points=F, auto.key=list(cex=0.73),
-#          scale=list(x=list(at=seq(0,85,10))))
-# dev.off()
-
-sub <- traffic[sample(nrow(traffic),10000),]
-
-
-# png('./figures/bulkbwplot/bulkbwplot%02d.png', units='in', res=220, width=8.5, height=6)
-# bwplot(rcat~speed | weekend*hour.range*construction*urban, 
-#        data=traffic, axis=axis.grid, do.out=T, as.table=T,
-#        par.settings = list(plot.symbol = list(pch = 16, cex=0.3, alpha=0.5)),
-#        par.strip.text=list(cex=.68), layout=c(4,2),
-#        xlab='Speed (mph)', ylab='Precipitation Rate (mm/hr)',
-#        cex=0.3, xlim=c(0,85),
-#        scale=list(x=list(at=seq(0,85,10), cex=0.7),
-#                   y=list(cex=0.7)
-#                   )
-#        )
-# dev.off()
-
-traffic.summary <- traffic %>% group_by(event, rcat, weekend, hour.range, construction, urban) %>% 
-  summarize(n=n(),
-            avgSpd=mean(speed),
-            medianSpd=median(speed))
-
-pdf('./figures/avgSpd_Bylocation.pdf', width=10, height=7)
-xyplot(rcat~avgSpd | factor(hour.range)*factor(construction)*factor(weekend), data=traffic.summary,
-       groups=urban, auto.key=T, cex=0.5, alpha=0.5,
-       axis=axis.grid, ylab='Precipitation Intensity (mm/hr)',
-       xlab='Average Speed (mph)',
-       layout=c(4,2), xlim=c(40,80),
-       scales=list(x=list(at=seq(35,85,5))))
-dev.off()
-
-png('./figures/medSpd_byLocation/medianSpd_Bylocation%02d.png', units='in', res=220, width=8.5, height=6)
-xyplot(rcat~medianSpd | factor(hour.range)*factor(construction)*factor(weekend), data=traffic.summary,
-       groups=urban, cex=0.5, alpha=0.5, pch=16,
-       auto.key=list(cex=0.73),
-       par.strip.text=list(cex=0.68, layout=c(4,1)),
-       axis=axis.grid, ylab='Precipitation Intensity (mm/hr)',
-       xlab='Median Speed (mph)',
-       layout=c(4,2), xlim=c(40,80),
-       scales=list(x=list(at=seq(35,85,5))))
-dev.off()
-
-# recalculate the above figures as % reductions
-
-
 # Calculate median percent reduction figures.
 
 traffic.summary.r <- traffic %>% group_by(hour.range,weekend,urban,construction,rcat) %>% 
@@ -794,48 +740,6 @@ nonConstruction.summary <- traffic.summary %>% filter(construction=='Non-Constru
 
 myData <- list(construction.summary, nonConstruction.summary)
 color1 <- '#648FFF'; color2 <- '#785EF0'; color3 <- '#DC267F'; color4 <- '#FE6100'; color5 <- '#FFB000'
-
-# plot_i <- 1
-# for (df in myData){
-#   if (dim(df)[1] == 0){
-#     next
-#   }
-#   
-#   png(paste0('./figures/percent_reductions/median_percentReduction', plot_i, '.png'), 
-#       units='in', res=220, width=8.5, height=6)
-#   p <- useOuterStrips(  xyplot(rcat~median.percent.reduction | hour.range*weekend,
-#                                data=df[which(df$n.r > 100),], groups=urban, alpha=0.7, cex=0.7, pch=c(16,15,17,18), 
-#                                col=c(color1, color2, color3, color4), jitter=T,
-#                                axis=axis.grid, ylab='Precipitation Intensity (mm/hr)',
-#                                xlab='Median Speed (mph)', main='Median Speed Percent Reduction (Sample Sizes > 100)',
-#                                par.strip.text=list(cex=0.68),
-#                                auto.key=list(columns=4),
-#                                # key=list(space='top',
-#                                #          text=list(levels(factor(c('Indianapolis', 'Louisville', 'Northern Indiana', 'Rural')))),
-#                                #          cex=0.9,
-#                                #          points=list(pch=c(16,15,17,18), cex=0.7, col=c(color1, color2, color3, color4), alpha=0.7),
-#                                #          columns=4
-#                                #          ),
-#                                as.table=T,
-#                                strip.left=T,
-#                                layout=c(4,2), xlim=c(-6,16),
-#                                scales=list(x=list(at=seq(-10,20,2), rot=90, cex=0.7),
-#                                            y=list(cex=0.7)
-#                                            )
-#                                )
-#                         )
-# 
-#   
-#   print(p)
-#   dev.off()
-# 
-# 
-#   
-#   plot_i <- plot_i + 1
-# }
-
-
-
 
 
 png(paste0('./figures/speed_reductions/median_Reduction_Construction.png'), 
@@ -897,5 +801,3 @@ p <- useOuterStrips(  xyplot(rcat~raw.reduction | hour.range*weekend,
                       )
 print(p)
 dev.off()
-
-# plot the average percent reduction and maybe sample sizes? The sample sizes before should be sufficient right?

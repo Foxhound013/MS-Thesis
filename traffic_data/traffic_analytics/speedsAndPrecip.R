@@ -215,6 +215,63 @@ traffic <- traffic[-all_crashes,]
 sum(traffic$precip > 0)/nrow(traffic) * 100
 
 
+# Investigate the below 50 mph speed quantiles
+tmp <- traffic %>%
+  select(speed, weekend, hour.range, event, construction, urban) %>%
+  filter(speed <= 50) %>% 
+  group_by(weekend, hour.range, event, construction, urban) %>%
+  group_modify(~ {
+    quantile(.x$speed, probs=seq(0,1,0.01)) %>%
+      tibble::enframe(name='prob', value='speedQuant')
+  })
+
+tmp$event <- ifelse(tmp$event, 'Rain', 'Non-Rain')
+tmp$event <- as.factor(tmp$event)
+
+tmp$prob <- gsub('%', '', tmp$prob)
+tmp$prob <- as.numeric(tmp$prob)
+
+tmp <- tmp %>% ungroup()
+
+tmp$rowid <- paste0(tmp$weekend, '.', tmp$hour.range, '.', tmp$event, '.', tmp$construction, '.',
+                    tmp$urban, '.', tmp$construction)
+tmp$rowid <- factor(tmp$rowid)
+tmp$rowid <- as.numeric(tmp$rowid)
+
+tmp$combination <- paste0(tmp$weekend, '.', tmp$event, '.', tmp$construction)
+tmp$combination <- factor(tmp$combination)
+tmp$urban <- factor(tmp$urban)
+tmp <- tmp %>% select(rowid, hour.range, urban, combination, speedQuant)
+
+tmp$rowid2 <- 1:nrow(tmp)
+
+# get the identifiers for each group combination
+idtable <- tmp %>% select(rowid, hour.range, urban, combination) %>% unique() %>%
+  arrange(urban, hour.range)
+
+tmp2 <- reshape2::dcast(tmp,
+                        rowid+rowid2+hour.range+urban~combination,
+                        value.var='speedQuant')
+# save for manual processing in excel
+write.csv(tmp2, file='./data/processed/speedQuantiles_forCleaning.csv')
+
+speedQuants <- read.csv('./data/processed/speedQuantiles_Cleaned.csv', header=T)
+speedQuants <- speedQuants %>% select(-rowid, -rowid2)
+
+
+png(paste0('./figures/splom/splomtest_%02d.png'), units='in', res=400, width=8.5, height=6)
+splom(~(speedQuants %>% select(-hour.range, -urban)) | urban,
+      data=speedQuants, groups=hour.range, pch=16, cex=0.2, alpha=0.5,
+      as.table=T, axis=axis.grid,
+      main='Speed Quantiles (Speed Below 50 mph)',
+      layout=c(1,1),
+      auto.key=list(columns=4),
+      axis.text.cex=0.2,
+      varname.cex=0.2)
+dev.off()
+
+
+
 distro <- traffic
 distro$event <- ifelse(distro$event==T, yes='Rain', no='Non-Rain')
 distro$event <- factor(distro$event,
@@ -244,51 +301,6 @@ myData <- list(indy_construction, indy_nonConstruction, northernIN_construction,
 
 
 
-# tmp <- traffic %>% 
-#   select(speed, weekend, hour.range, event, construction, urban) %>% 
-#   group_by(weekend, hour.range, event, construction, urban) %>% 
-#   group_modify(~ {
-#     quantile(.x$speed, probs=seq(0,1,0.01)) %>% 
-#     tibble::enframe(name='prob', value='speedQuant')
-#   })
-#   
-# tmp$event <- ifelse(tmp$event, 'Rain', 'Non-Rain')
-# tmp$event <- as.factor(tmp$event)
-# 
-# tmp$prob <- gsub('%', '', tmp$prob)
-# tmp$prob <- as.numeric(tmp$prob)
-# 
-# tmp2 <- traffic %>% 
-#   select(precip, weekend, hour.range, event, construction, urban) %>% 
-#   group_by(weekend, hour.range, event, construction, urban) %>% 
-#   group_modify(~ {
-#     quantile(.x$precip, probs=seq(0,1,0.01)) %>% 
-#       tibble::enframe(name='prob', value='precipQuant')
-#   })
-# 
-# tmp2$event <- ifelse(tmp2$event, 'Rain', 'Non-Rain')
-# tmp2$event <- as.factor(tmp2$event)
-# 
-# tmp2$prob <- gsub('%', '', tmp2$prob)
-# tmp2$prob <- as.numeric(tmp2$prob)
-# 
-# tmp$precipQuant <- tmp2$precipQuant
-# tmp <- tmp %>% ungroup()
-# tmp <- tmp[,c(seq(1:5),7,6,8)]
-# 
-# 
-# png(paste0('./figures/splomtest.png'), units='in', res=220, width=8.5, height=6)
-# splom(~(tmp %>% select(-construction, -urban, -event, -hour.range, -weekend)) | construction, 
-#       data=tmp, groups=urban, pch=16, cex=0.2, alpha=0.3,
-#       as.table=T,
-#       auto.key=list(columns=4))
-# # p <- useOuterStrips(
-# #   xyplot(prob~quantile | hour.range*weekend, data=tmp, groups=urban,
-# #          axis=axis.grid, do.out=T, as.table=T, strip.left=T,
-# #          pch=16, cex=0.3)
-# # )
-# # print(p)
-# dev.off()
 
 lattice.blue <- '#0080ff'
 lattice.pink <- '#ff00ff'
@@ -297,7 +309,6 @@ lattice.pink <- '#ff00ff'
 # df <- indy_nonConstruction
 # plot_i <- 7
 # 
-
 plot_i <- 1
 for (df in myData){
   if (dim(df)[1] == 0){

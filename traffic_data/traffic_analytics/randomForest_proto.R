@@ -18,13 +18,12 @@ road.map <- traffic %>% select(startmm,lon,lat) %>% unique() %>% st_as_sf(coords
 tmap_mode('view')
 tm_shape(road.map) + tm_dots()
 
-traffic <- traffic %>% mutate(event=ifelse(precip > 0, yes=T, no=F))
+
 segs <- traffic %>% select(position) %>% unique()
 
-# traffic <- traffic %>% group_by(startmm) %>% mutate(medianSpd=median(speed)) %>% ungroup()
-# traffic$speedClass <- ifelse(traffic$speed >= traffic$medianSpd,
-#                              yes='Normal', no='Slow Down')
 
+# Prep the traffic dataset
+traffic <- traffic %>% mutate(event=ifelse(precip > 0, yes=T, no=F))
 traffic <- traffic %>% mutate(region=ifelse(position >= 2 & position <= 15,
                                             yes='Louisville', 
                                             no=ifelse(position >= 189 & position <= 239,
@@ -36,32 +35,21 @@ traffic <- traffic %>% mutate(region=ifelse(position >= 2 & position <= 15,
 )
 )
 
-spd.ranges <- c(0,40,50,100)
-traffic$rspd <- cut(traffic$speed, breaks=spd.ranges, right=F, include.lowest=T)
-
 # add in a lagged speed, how many minutes, maybe 16 minutes? (i.e. 8 time steps)
-traffic$laggedSpeed <- traffic %>% group_by(startmm) %>% lag('speed', n=8)
+# traffic$laggedSpeed <- traffic %>% group_by(startmm) %>% lag('speed', n=8)
+traffic <- traffic %>% group_by(startmm) %>% 
+  mutate(laggedSpeed=lag(speed,n=8)) %>% ungroup()
 
 tmp <- traffic %>% filter(startmm==0.580)
 
-precip.ranges <- c(0,0.01,2.5,5,10,20,30,40,50,60,70,80,150)
-traffic$rcat <- cut(traffic$precip,
-                    breaks=precip.ranges, right=F, include.lowest=T)
-
-# traffic$speedClass <- ifelse(traffic$speed > 55, yes='Normal',
-#                              no= ifelse(traffic$speed >= 50 & traffic$speed <= 55,
-#                                         yes='Minor Slow Down',
-#                                         no=ifelse(traffic$speed >= 45 & traffic$speed < 50,
-#                                                   yes='Moderate Slow Down',
-#                                                   no='Major Slow Down')
-#                              )
-# )
+# precip.ranges <- c(0,0.01,2.5,5,10,20,30,40,50,60,70,80,150)
+# traffic$rcat <- cut(traffic$precip,
+#                     breaks=precip.ranges, right=F, include.lowest=T)
 
 traffic30 <- traffic %>% filter(score==30)
 
-
 sub <- traffic %>% filter(score == 30) %>% 
-  select(rspd, precip, region, bearing, construction, 
+  select(speed, laggedSpeed, precip, region, bearing, construction, 
          hours, daylight, dayofweek)
 # removed region in favor of startmm for this test
 
@@ -74,22 +62,20 @@ sub$construction <- ifelse(sub$construction==T, yes='Construction', no='Non-Cons
 sub$construction <- factor(sub$construction)
 
 
-# sub <- sub %>% mutate(hour.range=ifelse(sub$hours >= 4 & sub$hours < 10,
-#                                         yes='Morning', 
-#                                         no=ifelse(sub$hours >= 10 & sub$hours < 16,
-#                                                   yes='Morning Rush',
-#                                                   no=ifelse(sub$hours >= 16 & sub$hours < 22,
-#                                                             yes='Afternoon Rush',
-#                                                             no='Evening')
-#                                         )
-# )
-# )
-# sub$hour.range <- factor(sub$hour.range,
-#                          levels=c('Morning', 'Morning Rush', 'Afternoon Rush', 'Evening'))
+sub <- sub %>% mutate(hour.range=ifelse(sub$hours >= 4 & sub$hours < 10,
+                                        yes='Morning',
+                                        no=ifelse(sub$hours >= 10 & sub$hours < 16,
+                                                  yes='Morning Rush',
+                                                  no=ifelse(sub$hours >= 16 & sub$hours < 22,
+                                                            yes='Afternoon Rush',
+                                                            no='Evening')
+                                        )
+)
+)
+sub$hour.range <- factor(sub$hour.range,
+                         levels=c('Morning', 'Morning Rush', 'Afternoon Rush', 'Evening'), ordered=T)
 
-hour.arrangement <- c('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14',
-                      '15','16','17','18','19','20','21','22','23')
-sub$hours <- factor(sub$hours, levels=hour.arrangement)
+
 
 sub$daylight <- ifelse(sub$daylight==T, yes='Day', no='Night')
 sub$daylight <- factor(sub$daylight)
@@ -102,93 +88,43 @@ sub$weekend <- ifelse(sub$dayofweek == 'Saturday' | sub$dayofweek == 'Sunday',
 sub$weekend <- factor(sub$weekend,
                       levels=c('Weekday','Weekend'))
 
-#sub$speedClass <- factor(sub$speedClass)
+
 sub$bearing <- factor(sub$bearing)
 
-
-
-# sub$startmm <- factor(sub$startmm)
-
-
-# sub2 <- sub %>% filter(startmm==113.46)
+sub <- sub %>% select(-hours, -dayofweek)
 
 set.seed(42)
-train <- sample(nrow(sub), 0.1*nrow(sub), replace=F)
+train <- sample(nrow(sub), 0.7*nrow(sub), replace=F)
 
 trainSet <- sub[train,]
 validSet <- sub[-train,]
 
-# validSub <- sample(nrow(validSet), 0.01*nrow(validSet), replace=F)
-# validSet <- sub[validSub,]
 
 str(sub)
-# rfImpute is for imputing via a random forest.
-# sub.impute <- rfImpute(speedClass ~ ., data=trainSet)
-
-
-
-
-# m1 <- randomForest(speed ~ ., data=trainSet, ntree=100)
-# m1
-# plot(m1)
-
-
-
-
-# library(gbm)
-
-
-# traffic.boost <- gbm(speed ~ . ,data = trainSet, distribution = "gaussian",n.trees = 500,
-#                      shrinkage = 0.01, interaction.depth = 4)
-# summary(traffic.boost)
-# 
-# plot(traffic.boost, i='region')
-# plot(traffic.boost, i='construction')
-# plot(traffic.boost, i='hours')
-# plot(traffic.boost, i='precip')
-# 
-# n.trees = seq(from=100 ,to=10000, by=100) # number of trees
-# 
-# #Generating a Prediction matrix for each Tree
-# predmatrix<-predict(traffic.boost, validSet, n.trees = n.trees)
-# dim(predmatrix) #dimentions of the Prediction Matrix
-# 
-# #Calculating The Mean squared Test Error
-# test.error<-with(validSet,apply( (speed-predmatrix)^2,2,mean))
-# head(test.error) #contains the Mean squared test error for each of the 100 trees averaged
-# 
-# plot(n.trees, test.error)
 
 
 
 
 
-
-
-
-
-# library(xgboost)
 # https://www.youtube.com/watch?v=woVTNwRrFHE
 
 
-dummy <- dummyVars(~., data=trainSet %>% select(-rspd))
-train_mat <- predict(dummy, newdata=trainSet %>% select(-rspd))
+dummy <- dummyVars(~., data=trainSet %>% select(-speed))
+train_mat <- predict(dummy, newdata=trainSet %>% select(-speed))
 dim(train_mat)
 
-dummy <- dummyVars(~., data=validSet %>% select(-rspd))
-test_mat <- predict(dummy, newdata=validSet %>% select(-rspd))
+dummy <- dummyVars(~., data=validSet %>% select(-speed))
+test_mat <- predict(dummy, newdata=validSet %>% select(-speed))
 
-y_train <- trainSet$rspd
-y_train <- as.integer(y_train) - 1
+y_train <- trainSet$speed
 x_train <- xgb.DMatrix(train_mat, label=y_train)
 
-y_test <- validSet$rspd
-y_test <- as.integer(y_test) - 1
+y_test <- validSet$speed
 x_test <- xgb.DMatrix(test_mat, label=y_test)
 
 
 # may need to register a parallel backend to get the parallel computation to work properly
-xgb_trcontrol=trainControl(allowParallel=T)
+
 # eta is the shrinkage parameter
 parametersGrid <- expand.grid(eta=seq(0.1,0.7,.2),
                               max_depth=c(1,2,3),
@@ -198,29 +134,42 @@ parametersGrid <- expand.grid(eta=seq(0.1,0.7,.2),
                               min_child_weight=2,
                               subsample=1)
 
-parametersGrid <- expand.grid(eta=0.3,
-                              max_depth=3,
-                              colsample_bytree=.5,
-                              nrounds=500,
-                              gamma=1,
-                              min_child_weight=2,
-                              subsample=1,
-                              eval_metric='mlogloss',
-                              num_class=3)
+parametersGrid <- expand.grid(nrounds=seq(200,1000,50),
+                              max_depth=6,
+                              eta=c(0.1, 0.2, 0.3),
+                              gamma=0,
+                              colsample_bytree=1,
+                              min_child_weight=1,
+                              subsample=1)
 
+xgb_trcontrol=trainControl(method='cv',
+                           number=3,
+                           verboseIter=FALSE,
+                           allowParallel=TRUE,
+                           seed=42)
+
+start <- Sys.time()
 xgb_model <- train(x_train, y_train, trControl=xgb_trcontrol, method='xgbTree',
-                   tuneGrid=parametersGrid)
+                   tuneGrid=parametersGrid, verbose=TRUE)
+end <- Sys.time(); end-start
 
-xgb_model <- xgb.train(params=parametersGrid, 
+start <- Sys.time()
+xgb_model <- xgb.train(params=parametersGrid,
                        data=x_train,
-                       nrounds=100,
+                       nrounds=500,
                        print_every_n = 50)
+end <- Sys.time(); end-start
 
-xgb_model <- xgboost(data=x_train, label=y_train, max.depth=2, eta=0.3, nrounds=2,
-                     objective='binary:logistic')
+xgb_model <- xgboost(data=x_train, 
+                     eta=0.3, 
+                     max.depth=6, 
+                     colsample_bytree=0.5,
+                     nrounds=100,
+                     objective='reg:squarederror',
+                     nthread=11,
+                     verbose=1)
 
-# xgb_model <- xgboost(data=x_train, label=as.matrix(y_train), max.depth=2, eta=1, nthread=2, nrounds=2,
-#                      objective='binary:logistic')
+
 
 varImp(xgb_model)
 summary(xgb_model)
@@ -272,6 +221,7 @@ print(cm)
 res <- y_test - predicted
 root.mse = RMSE(predicted, y_test)
 mean.abs.error <- MAE(predicted, y_test)
+print(mean.abs.error)
 
 summary(res)
 
@@ -280,24 +230,40 @@ output <- data.frame(speed=y_test,
                      tstamp=traffic30[-train,'tstamp'][[1]],
                      startmm=traffic30[-train,'startmm'][[1]])
 
-tmp <- output %>% filter(startmm==135.29)
+tmp <- output
 tmp$tstamp <- as.POSIXct(tmp$tstamp, tz='utc', origin='1970-01-01 00:00:00')
 tmp <- tmp %>% group_by(startmm)
 tmp <- tmp[order(tmp$tstamp),]
-tmp_sub <- tmp[1:720,]
+tmp_sub <- tmp %>% mutate(avg4min=frollmean(x=speed,n=2,fill=NA),
+                          avg10min=frollmean(x=speed,n=5,fill=NA),
+                          avg60min=frollmean(x=speed,n=30,fill=NA),
+                          avg120min=frollmean(x=speed,n=60, fill=NA),
+                          avg240min=frollmean(x=speed,n=120,fill=NA),
+                          avg480min=frollmean(x=speed,n=480,fill=NA))
 
-tmp_sub <- tmp_sub %>% mutate(avg4min=frollmean(x=speed,n=2,fill=NA),
-                              avg10min=frollmean(x=speed,n=5,fill=NA),
-                              avg60min=frollmean(x=speed,n=30,fill=NA),
-                              avg240min=frollmean(x=speed,n=120,fill=NA),
-                              avg480min=frollmean(x=speed,n=480,fill=NA))
 
+
+
+
+# tmp_sub <- tmp[203575 :6500,]
+
+xyplot(speed~tstamp, data=tmp_sub, type='l')
+
+
+
+MAE(tmp_sub$predicted, tmp_sub$speed, na.rm=T)
+MAE(tmp_sub$avg10min, tmp_sub$speed, na.rm=T)
+MAE(tmp_sub$avg60min, tmp_sub$speed, na.rm=T)
+MAE(tmp_sub$avg120min, tmp_sub$speed, na.rm=T)
 MAE(tmp_sub$avg240min, tmp_sub$speed, na.rm=T)
 
-xyplot(speed+predicted+avg10min+avg60min+avg240min+avg480min~tstamp, data=tmp_sub, type='l',
-       auto.key=T,
+pdf('./figures/predictions.pdf', width=12)
+xyplot(speed+predicted+avg10min+avg60min+avg120min+avg240min~tstamp | factor(startmm), data=tmp_sub, type='l',
+       auto.key=T, axis=axis.grid,
        ylab='Speed (mph)',
-       xlab='Time Stamp')
+       xlab='Time Stamp',
+       layout=c(1,4,1))
+dev.off()
 
 # bstSparse <- xgboost(data = x_train, label = y_train, 
 #                      max.depth = 2, eta = 1, nthread = 2, nrounds = 2, 
@@ -310,6 +276,10 @@ xyplot(y_test[1:10000]~predicted[1:10000])
 png('./figures/xgboost_residuals.png', width=10, height=7, units='in', res=300)
 plot(res, pch=16)
 dev.off()
+
+
+resQuant <- quantile(res, probs=seq(0,1,0.01))
+plot(seq(0,100), resQuant)
 
 densityplot(~res, plot.points=F,
             main='XGBoost Residuals Density Plot',
@@ -359,6 +329,9 @@ tmp2 <- tmp %>% group_by(region) %>% summarise(prob1=quantile(residual, prob=0.1
 # The above confirms the suspicion that rural regions are the primary contributor to majorly negative
 # errors. The rural region and indianapolis region are not nearly as specific as the 
 # northern indiana and louisville regions.
+
+# should probably normalize this by the number of segments in each region as this will have a major
+# impact on the number of low residuals
 
 
 

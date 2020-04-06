@@ -6,6 +6,7 @@ library(e1071)
 library(gbm)
 library(xgboost)
 library(caret)
+library(DiagrammeR)
 library(sf)
 library(tmap)
 
@@ -46,9 +47,9 @@ tmp <- traffic %>% filter(startmm==0.580)
 # traffic$rcat <- cut(traffic$precip,
 #                     breaks=precip.ranges, right=F, include.lowest=T)
 
-traffic30 <- traffic %>% filter(score==30)
+# traffic30 <- traffic %>% filter(score==30)
 
-sub <- traffic %>% filter(score == 30) %>% 
+sub <- traffic %>%
   select(speed, laggedSpeed, precip, region, bearing, construction, 
          hours, daylight, dayofweek)
 # removed region in favor of startmm for this test
@@ -91,13 +92,15 @@ sub$weekend <- factor(sub$weekend,
 
 sub$bearing <- factor(sub$bearing)
 
-sub <- sub %>% select(-hours, -dayofweek)
+sub <- sub %>% select(-hours)
 
 set.seed(42)
-train <- sample(nrow(sub), 0.7*nrow(sub), replace=F)
+firstSeventy <- 1:(nrow(sub)*0.7)
+lastThirty <- ((nrow(sub)*0.7)+1):nrow(sub)
+# train <- sample(nrow(sub), 0.7*nrow(sub), replace=F)
 
-trainSet <- sub[train,]
-validSet <- sub[-train,]
+trainSet <- sub[firstSeventy,]
+validSet <- sub[lastThirty,]
 
 
 str(sub)
@@ -125,15 +128,6 @@ x_test <- xgb.DMatrix(test_mat, label=y_test)
 
 # may need to register a parallel backend to get the parallel computation to work properly
 
-# eta is the shrinkage parameter
-parametersGrid <- expand.grid(eta=seq(0.1,0.7,.2),
-                              max_depth=c(1,2,3),
-                              colsample_bytree=c(0.2,0.5,0.8),
-                              nrounds=100,
-                              gamma=1,
-                              min_child_weight=2,
-                              subsample=1)
-
 parametersGrid <- expand.grid(nrounds=seq(200,1000,50),
                               max_depth=6,
                               eta=c(0.1, 0.2, 0.3),
@@ -145,29 +139,34 @@ parametersGrid <- expand.grid(nrounds=seq(200,1000,50),
 xgb_trcontrol=trainControl(method='cv',
                            number=3,
                            verboseIter=FALSE,
-                           allowParallel=TRUE,
-                           seed=42)
+                           allowParallel=TRUE)
 
 start <- Sys.time()
 xgb_model <- train(x_train, y_train, trControl=xgb_trcontrol, method='xgbTree',
-                   tuneGrid=parametersGrid, verbose=TRUE)
+                   tuneGrid=parametersGrid)
 end <- Sys.time(); end-start
+# 
+# start <- Sys.time()
+# xgb_model <- xgb.train(params=parametersGrid,
+#                        data=x_train,
+#                        nrounds=500,
+#                        print_every_n = 50)
+# end <- Sys.time(); end-start
+# 
+# xgb_model <- xgboost(data=x_train, 
+#                      eta=0.3, 
+#                      max.depth=6, 
+#                      colsample_bytree=0.5,
+#                      nrounds=100,
+#                      objective='reg:squarederror',
+#                      nthread=11,
+#                      verbose=1)
+# 
+png('./figures/xgboostCV.png', units='in', res=220, width=8.5, height=6)
+plot(xgb_model)
+dev.off()
 
-start <- Sys.time()
-xgb_model <- xgb.train(params=parametersGrid,
-                       data=x_train,
-                       nrounds=500,
-                       print_every_n = 50)
-end <- Sys.time(); end-start
-
-xgb_model <- xgboost(data=x_train, 
-                     eta=0.3, 
-                     max.depth=6, 
-                     colsample_bytree=0.5,
-                     nrounds=100,
-                     objective='reg:squarederror',
-                     nthread=11,
-                     verbose=1)
+xgb_model$bestTune
 
 
 
@@ -176,7 +175,8 @@ summary(xgb_model)
 
 xgb_imp <- xgb.importance(feature_names=xgb_model$finalModel$feature_names,
                           model=xgb_model$finalModel)
-xgb_imp$Feature <- as.integer(xgb_imp$Feature) + 1
+
+xgb_imp$Feature <- as.integer(xgb_imp$Feature)
 featureNames <- colnames(train_mat)
 
 xgb_imp$featureName <- featureNames[xgb_imp$Feature]
@@ -213,11 +213,6 @@ barchart(variable~value, data=summedImportance,
 plot(xgb_model)
 
 predicted <- predict(xgb_model, x_test)
-predicted <- as.factor(predicted)
-y_test <- as.factor(y_test)
-cm <- confusionMatrix(y_test, predicted)
-print(cm)
-
 res <- y_test - predicted
 root.mse = RMSE(predicted, y_test)
 mean.abs.error <- MAE(predicted, y_test)
@@ -232,45 +227,50 @@ output <- data.frame(speed=y_test,
 
 tmp <- output
 tmp$tstamp <- as.POSIXct(tmp$tstamp, tz='utc', origin='1970-01-01 00:00:00')
+# tmp$tstamp <- format(tmp$tstamp, tc='utc', usetz=T)
 tmp <- tmp %>% group_by(startmm)
 tmp <- tmp[order(tmp$tstamp),]
 tmp_sub <- tmp %>% mutate(avg4min=frollmean(x=speed,n=2,fill=NA),
                           avg10min=frollmean(x=speed,n=5,fill=NA),
+                          avg16min=frollmean(x=speed,n=8,fill=NA),
                           avg60min=frollmean(x=speed,n=30,fill=NA),
                           avg120min=frollmean(x=speed,n=60, fill=NA),
                           avg240min=frollmean(x=speed,n=120,fill=NA),
                           avg480min=frollmean(x=speed,n=480,fill=NA))
 
 
-
+tmp_sub2 <- tmp_sub %>% filter(startmm == 130.56)
+startEvent <- 1830 #which(tmp_sub2$tstamp == '2018-06-09 06:56:00')
+endEvent <- 1880 #which(tmp_sub2$tstamp == '2018-06-09 17:00:00')
+tmp_sub2 <- tmp_sub2[startEvent:endEvent,]
+tmp_sub2$res <- tmp_sub2$speed - tmp_sub2$predicted
 
 
 # tmp_sub <- tmp[203575 :6500,]
 
-xyplot(speed~tstamp, data=tmp_sub, type='l')
+# xyplot(speed~tstamp, data=tmp_sub, type='l')
 
 
 
 MAE(tmp_sub$predicted, tmp_sub$speed, na.rm=T)
-MAE(tmp_sub$avg10min, tmp_sub$speed, na.rm=T)
+# MAE(tmp_sub$avg10min, tmp_sub$speed, na.rm=T)
+MAE(tmp_sub$avg16min, tmp_sub$speed, na.rm=T)
 MAE(tmp_sub$avg60min, tmp_sub$speed, na.rm=T)
 MAE(tmp_sub$avg120min, tmp_sub$speed, na.rm=T)
-MAE(tmp_sub$avg240min, tmp_sub$speed, na.rm=T)
+# MAE(tmp_sub$avg240min, tmp_sub$speed, na.rm=T)
 
-pdf('./figures/predictions.pdf', width=12)
-xyplot(speed+predicted+avg10min+avg60min+avg120min+avg240min~tstamp | factor(startmm), data=tmp_sub, type='l',
-       auto.key=T, axis=axis.grid,
+
+xyplot(speed+predicted+avg16min+avg60min~tstamp, data=tmp_sub2, type=c('l', 'p'),
+       axis=axis.grid,
        ylab='Speed (mph)',
-       xlab='Time Stamp',
-       layout=c(1,4,1))
-dev.off()
-
-# bstSparse <- xgboost(data = x_train, label = y_train, 
-#                      max.depth = 2, eta = 1, nthread = 2, nrounds = 2, 
-#                      objective = "binary:logistic")
+       xlab='Time Stamp (EST)',
+       main='XGBoost Model Compared with Moving Averages',
+       auto.key=list(columns=2, rows=2))
 
 
-xyplot(y_test[1:10000]~predicted[1:10000])
+
+
+# xyplot(y_test[1:10000]~predicted[1:10000])
 
 # MAYBE TRY HEXBIN PLOTTING THESE?
 png('./figures/xgboost_residuals.png', width=10, height=7, units='in', res=300)
@@ -305,10 +305,11 @@ tmp$residual <- res
 
 
 
-
+png('./figures/residualDensity.png', units='in', res=220, width=8.5, height=6)
 densityplot(~res | region, data=tmp,
             plot.points=F, axis=axis.grid,
-            layout=c(8,2))
+            layout=c(4,1))
+dev.off()
 
 
 tmp2 <- tmp %>% group_by(region) %>% summarise(prob1=quantile(residual, prob=0.1),

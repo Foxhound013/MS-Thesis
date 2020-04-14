@@ -11,7 +11,11 @@ library(sf)
 library(tmap)
 
 traffic <- fread('./data/processed/I-65N_WxSpd.csv')
-# traffic$tstamp <- as.POSIXct(traffic$tstamp, tz='utc', origin='1970-01-01 00:00:00')
+traffic$tstamp <- as.POSIXct(traffic$tstamp, tz='utc', origin='1970-01-01 00:00:00')
+traffic <- traffic %>% group_by(startmm)
+traffic <- traffic[order(traffic$tstamp),]
+traffic <- traffic %>%  ungroup()
+
 
 anyNA(traffic$precip)
 
@@ -50,8 +54,8 @@ tmp <- traffic %>% filter(startmm==0.580)
 # traffic30 <- traffic %>% filter(score==30)
 
 sub <- traffic %>%
-  select(speed, laggedSpeed, precip, region, bearing, construction, 
-         hours, daylight, dayofweek)
+  select(speed, tstamp, startmm, laggedSpeed, precip, region, bearing, 
+         construction, hours, daylight, dayofweek)
 # removed region in favor of startmm for this test
 
 ### ADD THE PRECIPITATION CATEGORIES IN TO THE DATASET
@@ -94,13 +98,20 @@ sub$bearing <- factor(sub$bearing)
 
 sub <- sub %>% select(-hours)
 
-set.seed(42)
-firstSeventy <- 1:(nrow(sub)*0.7)
-lastThirty <- ((nrow(sub)*0.7)+1):nrow(sub)
-# train <- sample(nrow(sub), 0.7*nrow(sub), replace=F)
+# 21 days is 70% of June
+firstSeventy <- sub %>% group_by(startmm) %>% filter(tstamp < '2018-06-22 00:00:00') %>% 
+  ungroup() %>% select(-tstamp, -startmm)
+firstSeventy_info <- sub %>% group_by(startmm) %>% filter(tstamp < '2018-06-22 00:00:00') %>% 
+  ungroup() %>% select(tstamp, startmm)
 
-trainSet <- sub[firstSeventy,]
-validSet <- sub[lastThirty,]
+lastThirty <- sub %>% group_by(startmm) %>% filter(tstamp >= '2018-06-22 00:00:00') %>% 
+  ungroup() %>% select(-tstamp, -startmm)
+lastThirty_info <- sub %>% group_by(startmm) %>% filter(tstamp >= '2018-06-22 00:00:00') %>% 
+  ungroup() %>% select(tstamp, startmm, region, construction, hour.range, weekend)
+
+
+trainSet <- firstSeventy
+validSet <- lastThirty
 
 
 str(sub)
@@ -212,7 +223,7 @@ barchart(variable~value, data=summedImportance,
 
 plot(xgb_model)
 
-predicted <- predict(xgb_model, x_test)
+predicted <- predict(xgb_model$finalModel, x_test)
 res <- y_test - predicted
 root.mse = RMSE(predicted, y_test)
 mean.abs.error <- MAE(predicted, y_test)
@@ -222,8 +233,12 @@ summary(res)
 
 output <- data.frame(speed=y_test,
                      predicted=predicted,
-                     tstamp=traffic30[-train,'tstamp'][[1]],
-                     startmm=traffic30[-train,'startmm'][[1]])
+                     tstamp=lastThirty_info$tstamp,
+                     startmm=lastThirty_info$startmm,
+                     region=lastThirty_info$region,
+                     construction=lastThirty_info$construction,
+                     hour.range=lastThirty_info$hour.range,
+                     weekend=lastThirty_info$weekend)
 
 tmp <- output
 tmp$tstamp <- as.POSIXct(tmp$tstamp, tz='utc', origin='1970-01-01 00:00:00')
@@ -250,14 +265,67 @@ tmp_sub2$res <- tmp_sub2$speed - tmp_sub2$predicted
 
 # xyplot(speed~tstamp, data=tmp_sub, type='l')
 
+errorSummary <- tmp_sub %>% group_by(region, construction, hour.range, weekend) %>% 
+  summarize(raw_mae=MAE(predicted, speed, na.rm=T),
+            min10_mae=MAE(avg16min, speed, na.rm=T),
+            min60_mae=MAE(avg60min, speed, na.rm=T))
+
+lattice.blue <- "#0080ff"
+lattice.pink <- "#ff00ff"
+lattice.green <- 'darkgreen'
+
+png('./figures/mae/nonConstruction_mae.png', units='in', res=220, width=8.5, height=6)
+p <- useOuterStrips(dotplot(region~raw_mae+min10_mae+min60_mae | hour.range*weekend,
+                            data=subset(errorSummary, errorSummary$construction=='Non-Construction'),
+                            as.table=T, strip.left=T, axis=axis.grid,
+                            main='MAE for Non-Construction Regions',
+                            xlab='MAE (+/- mph)',
+                            par.strip.text=list(cex=0.68),
+                            pch=rep(16,3),
+                            cex=0.7,
+                            alpha=0.7,
+                            layout=c(4,2),
+                            key=list(columns=3, text=list(c('XGBoost', '10 min', '60 min')),
+                                     points=list(pch=rep(16,3), 
+                                                 col=c(lattice.blue, lattice.pink, lattice.green),
+                                                 cex=0.7, alpha=0.7),
+                                     cex=0.9
+                            ),
+                            xlim=c(0,5),
+                            scales=list(x=list(at=seq(0,5,1), cex=0.7),
+                                        y=list(cex=0.7))
+)
+)
+print(p)
+dev.off()
 
 
-MAE(tmp_sub$predicted, tmp_sub$speed, na.rm=T)
-# MAE(tmp_sub$avg10min, tmp_sub$speed, na.rm=T)
-MAE(tmp_sub$avg16min, tmp_sub$speed, na.rm=T)
-MAE(tmp_sub$avg60min, tmp_sub$speed, na.rm=T)
-MAE(tmp_sub$avg120min, tmp_sub$speed, na.rm=T)
-# MAE(tmp_sub$avg240min, tmp_sub$speed, na.rm=T)
+png('./figures/mae/construction_mae.png', units='in', res=220, width=8.5, height=6)
+p <- useOuterStrips(dotplot(region~raw_mae+min10_mae+min60_mae | hour.range*weekend,
+                            data=subset(errorSummary, errorSummary$construction=='Construction'),
+                            as.table=T, strip.left=T, axis=axis.grid,
+                            main='MAE for Construction Regions',
+                            xlab='MAE (+/- mph)',
+                            par.strip.text=list(cex=0.68),
+                            pch=rep(16,3),
+                            cex=0.7,
+                            alpha=0.7,
+                            layout=c(4,2),
+                            key=list(columns=3, text=list(c('XGBoost', '10 min', '60 min')),
+                                     points=list(pch=rep(16,3), 
+                                                 col=c(lattice.blue, lattice.pink, lattice.green),
+                                                 cex=0.7, alpha=0.7),
+                                     cex=0.9
+                            ),
+                            xlim=c(0,5),
+                            scales=list(x=list(at=seq(0,5,1), cex=0.7),
+                                        y=list(cex=0.7))
+)
+)
+print(p)
+dev.off()
+
+
 
 
 xyplot(speed+predicted+avg16min+avg60min~tstamp, data=tmp_sub2, type=c('l', 'p'),

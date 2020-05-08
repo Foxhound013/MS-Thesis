@@ -306,8 +306,8 @@ lattice.blue <- '#0080ff'
 lattice.pink <- '#ff00ff'
 
 # troubleshooting snippet
-# df <- indy_nonConstruction
-# plot_i <- 7
+df <- indy_nonConstruction
+plot_i <- 7
 # 
 plot_i <- 1
 for (df in myData){
@@ -315,30 +315,24 @@ for (df in myData){
     next
   }
   
-  png(paste0('./figures/bulkECDF/bulkECDF', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
-  p <- useOuterStrips(ecdfplot(~speed | hour.range*weekend,
-                               data=df, groups=event, as.table=T,
-                               strip.left=T,
-                               par.strip.text=list(cex=.68),
-                               layout=c(4,2), xlab='Speed (mph)',
-                               main=paste0('Empirical Cumulative Distribution for ', df$urban[1], ' ', df$construction[1]),
-                               axis=axis.grid, alhpa=0.5, xlim=c(0,85),
-                               from=0, to=90, plot.points=F, 
-                               auto.key=list(cex=0.73, columns=2),
-                               scale=list(x=list(at=seq(0,85,10), cex=0.7, alternating=T),
-                                          y=list(cex=0.7))
-                               )
-                      )
-  print(p)
-  dev.off()
+  # png(paste0('./figures/bulkECDF/bulkECDF', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  # p <- useOuterStrips(ecdfplot(~speed | hour.range*weekend,
+  #                              data=df, groups=event, as.table=T,
+  #                              strip.left=T,
+  #                              par.strip.text=list(cex=.68),
+  #                              layout=c(4,2), xlab='Speed (mph)',
+  #                              main=paste0('Empirical Cumulative Distribution for ', df$urban[1], ' ', df$construction[1]),
+  #                              axis=axis.grid, alhpa=0.5, xlim=c(0,85),
+  #                              from=0, to=90, plot.points=F, 
+  #                              auto.key=list(cex=0.73, columns=2),
+  #                              scale=list(x=list(at=seq(0,85,10), cex=0.7, alternating=T),
+  #                                         y=list(cex=0.7))
+  #                              )
+  #                     )
+  # print(p)
+  # dev.off()
   
-  #                                 text=list(c('5th Percentile', '25th Percentile',
-  #                                             '50th Percentile', '75th Percentile',
-  #                                             '95th Percentile')),
-  #                                 lines=list(lty=c(6,4,1,2,3), 
-  #                                            lwd=rep(1.5, 5), 
-  #                                            col=c('#b10000','#ca0000','#e40000',
-  #                                                  '#ff1818','#ff4b4b'))
+
   
   # png(paste0('./figures/bulkbwplot/bulkbwplot', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
   # p <- useOuterStrips(bwplot(rcat~speed | hour.range*weekend,
@@ -699,6 +693,215 @@ for (df in myData){
   # ))
   # print(p)
   # dev.off()
+  
+  # png(paste0('./figures/qq_math/normal/QQ_Normal', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  # p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
+  #                            data=subset(df, event=='Rain'), as.table=T,
+  #                            strip.left=T,
+  #                            par.strip.text=list(cex=0.68),
+  #                            layout=c(4,2), cex=0.3,
+  #                            xlab='Normal Distribution',
+  #                            ylab='Speed (mph)',
+  #                            main=paste0('Traffic Speed Vs Normal Distribution for ', df$urban[1], ' ',
+  #                                        df$construction[1]),
+  #                            panel=function(x, distribution, f.value,...) {
+  #                              panel.qqmath(x,
+  #                                           f.value=seq(0,1,0.05),
+  #                                           ...)
+  #                              mu=mean(x)
+  #                              std=sd(x)
+  #                              panel.abline(mu,std, col=lattice.blue, alpha=0.4)
+  #                              panel.text(-2.3,85,labels=paste0('Rain Mu: ', round(mu, 2)), cex=0.6)
+  #                              panel.text(-2.3,79,labels=paste0('Rain Std: ', round(std, 2)), cex=0.6)
+  #                            },
+  #                            axis=axis.grid, pch=16, ylim=c(30,90),  xlim=c(-4,4),#alpha=0.5,
+  #                            key=list(space='top',
+  #                                     text=list(levels(
+  #                                       factor(c('Rain',
+  #                                                'Non-Rain',
+  #                                                'Rain\n5/25/50/75/95 Percentiles',
+  #                                                'Non-Rain\n5/25/50/75/95 Percentiles'),
+  #                                              levels=c('Rain',
+  #                                                       'Non-Rain',
+  #                                                       'Rain\n5/25/50/75/95 Percentiles',
+  #                                                       'Non-Rain\n5/25/50/75/95 Percentiles')
+  #                                       )
+  #                                     )),
+  #                                     cex=0.9, columns=4,
+  #                                     points=list(pch=c(16,16,21,21),
+  #                                                 cex=rep(0.7,4),
+  #                                                 col=c(lattice.blue, lattice.pink, '#003366', '#660066'),
+  #                                                 fill=c(lattice.blue, lattice.pink, '#4da6ff', '#ff4dff'))
+  #                            ),
+  #                            scale=list(x=list(cex=0.7),
+  #                                       y=list(at=seq(0,90,10), cex=0.7)
+  #                            )
+  # )
+  # ) + as.layer(useOuterStrips(
+  #   qqmath(~speed | hour.range*weekend,
+  #          data=subset(df, event=='Non-Rain'), as.table=T,
+  #          strip.left=T,
+  #          par.strip.text=list(cex=0.68),
+  #          layout=c(4,2), cex=0.3,
+  #          panel=function(x, distribution, f.value,...) {
+  #            panel.qqmath(x,
+  #                         f.value=seq(0,1,0.05),
+  #                         ...)
+  #            mu=mean(x)
+  #            std=sd(x)
+  #            panel.abline(mu,std, col=lattice.pink, alpha=0.4)
+  #            panel.text(-1.8,73,labels=paste0('Non-Rain Mu: ', round(mu, 2)), cex=0.6)
+  #            panel.text(-1.8,67,labels=paste0('Non-Rain Std: ', round(std, 2)), cex=0.6)
+  #          },
+  #          pch=16, col=lattice.pink, ylim=c(30,90), xlim=c(-4,4),
+  #          scale=list(x=list(cex=0.7),
+  #                     y=list(at=seq(0,90,10), cex=0.7)
+  #          )
+  #   )
+  # )) + as.layer(useOuterStrips(
+  #   qqmath(~speed | hour.range*weekend,
+  #          data=subset(df, event=='Rain'), as.table=T,
+  #          strip.left=T,
+  #          par.strip.text=list(cex=0.68),
+  #          layout=c(4,2), cex=0.5,
+  #          panel=function(x, distribution, f.value,...) {
+  #            panel.qqmath(x,
+  #                         f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
+  #                         ...)
+  #          },
+  #          pch=21, col='#003366',
+  #          fill='#4da6ff',
+  #          ylim=c(30,90), xlim=c(-4,4),
+  #          scale=list(x=list(cex=0.7),
+  #                     y=list(at=seq(0,90,10), cex=0.7)
+  #          )
+  #   )
+  # )) + as.layer(useOuterStrips(
+  #   qqmath(~speed | hour.range*weekend,
+  #          data=subset(df, event=='Non-Rain'), as.table=T,
+  #          strip.left=T,
+  #          par.strip.text=list(cex=0.68),
+  #          layout=c(4,2), cex=0.5,
+  #          panel=function(x, distribution, f.value,...) {
+  #            panel.qqmath(x,
+  #                         f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
+  #                         ...)
+  #          },
+  #          pch=21, col='#660066',
+  #          fill='#ff4dff',
+  #          ylim=c(30,90), xlim=c(-4,4),
+  #          scale=list(x=list(cex=0.7),
+  #                     y=list(at=seq(0,90,10), cex=0.7)
+  #          )
+  #   )
+  # ))
+  # print(p)
+  # dev.off()
+  
+  cutoff <- 50
+  png(paste0('./figures/qq_math/normal/OutlierRemoved_QQ_Normal', plot_i, '.png'), units='in', res=220, width=8.5, height=6)
+  p <- useOuterStrips(qqmath(~speed | hour.range*weekend,
+                             data=subset(df, event=='Rain' & speed >= cutoff), as.table=T,
+                             strip.left=T,
+                             par.strip.text=list(cex=0.68),
+                             layout=c(4,2), cex=0.3,
+                             xlab='Normal Distribution',
+                             ylab='Speed (mph)',
+                             main=paste0('Traffic Speed Vs Normal Distribution for ', df$urban[1], ' ',
+                                         df$construction[1]),
+                             panel=function(x, distribution, f.value,...) {
+                               panel.qqmath(x,
+                                            f.value=seq(0,1,0.05),
+                                            ...)
+                               mu=mean(x)
+                               std=sd(x)
+                               panel.abline(mu,std, col=lattice.blue, alpha=0.4)
+                               panel.text(-2.3,88,labels=paste0('Rain Mu: ', round(mu, 2)), cex=0.6)
+                               panel.text(-2.3,85,labels=paste0('Rain Std: ', round(std, 2)), cex=0.6)
+                             },
+                             axis=axis.grid, pch=16, ylim=c(50,90), xlim=c(-4,4), #alpha=0.5,
+                             key=list(space='top',
+                                      text=list(levels(
+                                        factor(c('Rain',
+                                                 'Non-Rain',
+                                                 'Rain\n5/25/50/75/95 Percentiles',
+                                                 'Non-Rain\n5/25/50/75/95 Percentiles'),
+                                               levels=c('Rain',
+                                                        'Non-Rain',
+                                                        'Rain\n5/25/50/75/95 Percentiles',
+                                                        'Non-Rain\n5/25/50/75/95 Percentiles')
+                                        )
+                                      )),
+                                      cex=0.9, columns=4,
+                                      points=list(pch=c(16,16,21,21),
+                                                  cex=rep(0.7,4),
+                                                  col=c(lattice.blue, lattice.pink, '#003366', '#660066'),
+                                                  fill=c(lattice.blue, lattice.pink, '#4da6ff', '#ff4dff'))
+                             ),
+                             scale=list(x=list(cex=0.7),
+                                        y=list(at=seq(0,90,10), cex=0.7)
+                             )
+  )
+  ) + as.layer(useOuterStrips(
+    qqmath(~speed | hour.range*weekend,
+           data=subset(df, event=='Non-Rain' & speed >= cutoff), as.table=T,
+           strip.left=T,
+           par.strip.text=list(cex=0.68),
+           layout=c(4,2), cex=0.3,
+           panel=function(x, distribution, f.value,...) {
+             panel.qqmath(x,
+                          f.value=seq(0,1,0.05),
+                          ...)
+             mu=mean(x)
+             std=sd(x)
+             panel.abline(mu,std, col=lattice.pink, alpha=0.4)
+             panel.text(-1.8,82,labels=paste0('Non-Rain Mu: ', round(mu, 2)), cex=0.6)
+             panel.text(-1.8,79,labels=paste0('Non-Rain Std: ', round(std, 2)), cex=0.6)
+           },
+           pch=16, col=lattice.pink, ylim=c(50,90), xlim=c(-4,4),
+           scale=list(x=list(cex=0.7),
+                      y=list(at=seq(0,90,10), cex=0.7)
+           )
+    )
+  )) + as.layer(useOuterStrips(
+    qqmath(~speed | hour.range*weekend,
+           data=subset(df, event=='Rain' & speed >= cutoff), as.table=T,
+           strip.left=T,
+           par.strip.text=list(cex=0.68),
+           layout=c(4,2), cex=0.5,
+           panel=function(x, distribution, f.value,...) {
+             panel.qqmath(x,
+                          f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
+                          ...)
+           },
+           pch=21, col='#003366',
+           fill='#4da6ff',
+           ylim=c(50,90), xlim=c(-4,4),
+           scale=list(x=list(cex=0.7),
+                      y=list(at=seq(0,90,10), cex=0.7)
+           )
+    )
+  )) + as.layer(useOuterStrips(
+    qqmath(~speed | hour.range*weekend,
+           data=subset(df, event=='Non-Rain' & speed >= cutoff), as.table=T,
+           strip.left=T,
+           par.strip.text=list(cex=0.68),
+           layout=c(4,2), cex=0.5,
+           panel=function(x, distribution, f.value,...) {
+             panel.qqmath(x,
+                          f.value=c(0.05, 0.25, 0.50, 0.75, 0.95),
+                          ...)
+           },
+           pch=21, col='#660066',
+           fill='#ff4dff',
+           ylim=c(50,90), xlim=c(-4,4),
+           scale=list(x=list(cex=0.7),
+                      y=list(at=seq(0,90,10), cex=0.7)
+           )
+    )
+  ))
+  print(p)
+  dev.off()
   
   plot_i <- plot_i + 1
 }
